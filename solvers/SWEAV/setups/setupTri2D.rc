@@ -1,0 +1,71 @@
+[FORMAT]
+2.0
+
+[DATA FILE]
+#data/SWEAVAnalytic2D.h
+#data/SWEAVWall2D.h
+data/SWEAVGuus2D.h
+
+[MESH FILE]
+#BOX
+#../../meshes/wall.msh
+#../../meshes/meshAnalytic.msh
+#../../meshes/Analytich025.msh
+#../../meshes/circle.msh
+../../meshes/guush05.msh
+
+[MESH DIMENSION]
+2
+
+[ELEMENT TYPE] # number of edges, 100 means curvilinear
+100
+
+[BOX NX]
+10
+
+[BOX NY]
+10
+
+[BOX NZ]
+10
+
+[BOX BOUNDARY FLAG]
+1
+
+[POLYNOMIAL DEGREE]
+4
+
+#Can be COLLOCATION or CUBATURE
+[ADVECTION TYPE]
+CUBATURE
+
+
+[THREAD MODEL]
+CUDA
+
+[PLATFORM NUMBER]
+0
+
+[DEVICE NUMBER]
+0
+
+[TIME INTEGRATOR]
+SSPRK2
+
+[CFL NUMBER]
+0.1
+
+[START TIME]
+0
+
+[FINAL TIME]
+1
+
+[OUTPUT INTERVAL]
+1
+
+[OUTPUT TO FILE]
+TRUE
+
+[OUTPUT FILE NAME]
+SWE

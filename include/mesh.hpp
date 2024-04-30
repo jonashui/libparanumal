@@ -45,6 +45,7 @@ namespace Mesh {
   /*Element types*/
   enum ElementType {
     TRIANGLES     =3,
+    CURVEDTRIANGLES =100,
     QUADRILATERALS=4,
     TETRAHEDRA    =6,
     HEXAHEDRA     =12
@@ -84,6 +85,20 @@ class mesh_t {
   memory<int>   EToB;      // element-to-boundary condition type
   deviceMemory<int> o_EToB;
 
+  memory<dlong> EToN;
+  memory<dlong> Ncounts;
+  memory<dlong> Vcounts;
+
+  deviceMemory<dlong> o_EToN;
+  deviceMemory<dlong> o_Ncounts;
+  deviceMemory<dlong> o_Vcounts;
+
+
+
+  dlong Ncurv=0; 
+  memory<dlong> mapCurv;
+  deviceMemory<dlong> o_mapCurv;
+
   memory<int>   mapB;      // node-to-boundary condition type
   deviceMemory<int> o_mapB;
 
@@ -116,7 +131,10 @@ class mesh_t {
   /*************************/
   memory<dfloat> Dr, Ds, Dt;    // collocation differentiation matrices
   memory<dfloat> D;
+  memory<dfloat> Drw, Dsw;
+  memory<dfloat> Dw;
   deviceMemory<dfloat> o_D;
+  deviceMemory<dfloat> o_Dw;
   memory<dfloat> MM, invMM;     // reference mass matrix
   deviceMemory<dfloat> o_MM;
   memory<dfloat> LIFT;          // lift matrix
@@ -128,6 +146,15 @@ class mesh_t {
   memory<dfloat> Str, Sts, Stt;
   memory<dfloat> S;
   deviceMemory<dfloat> o_S;
+
+  memory<dfloat> invV1DsT;          
+  deviceMemory<dfloat> o_invV1Ds;
+
+  memory<dfloat> MM1DsT;          
+  deviceMemory<dfloat> o_MM1Ds;
+
+  memory<dfloat> perfectDecay2;
+  deviceMemory<dfloat> o_perfectDecay2;
 
   /*************************/
   /* Cubature              */
@@ -146,6 +173,13 @@ class mesh_t {
   memory<dfloat> cubPDT;                     // packed weak differentiation matrices
   deviceMemory<dfloat> o_cubPDT;
 
+  memory<dfloat> muInterp;    // interpolate from W&B to cubature nodes
+  deviceMemory<dfloat> o_muInterp;
+
+  memory<dfloat> invMMs; 
+  memory<dfloat> cubPDTs; 
+  deviceMemory<dfloat> o_cubPDTs;
+
   // surface integration node info
   int intNfp=0;    // number of integration nodes on each face
   memory<dfloat> intr, ints, intw;
@@ -153,6 +187,9 @@ class mesh_t {
   deviceMemory<dfloat> o_intInterp;
   memory<dfloat> intLIFT;   // lift from surface integration nodes to W&B volume nodes
   deviceMemory<dfloat> o_intLIFT;
+
+  memory<dfloat> intLIFTs; 
+  deviceMemory<dfloat> o_intLIFTs;
 
   /*************************/
   /* Plotting              */
@@ -192,6 +229,9 @@ class mesh_t {
   dlong   Nsgeo;
   memory<dfloat> sgeo;
   deviceMemory<dfloat> o_sgeo;
+
+  memory<dfloat> sgeoCurv;
+  deviceMemory<dfloat> o_sgeoCurv;
   // second order volume geometric factors
   dlong Nggeo;
   memory<dfloat> ggeo;
@@ -210,6 +250,19 @@ class mesh_t {
   deviceMemory<dfloat> o_cubsgeo;
   memory<dfloat> cubggeo;          //second type volume geometric data at cubature points
   deviceMemory<dfloat> o_cubggeo;
+
+
+  memory<dfloat> cubwJCurv;            //Jacobian at cubature points
+  deviceMemory<dfloat> o_cubwJCurv;
+  memory<dfloat> cubvgeoCurv;          //volume geometric data at cubature points
+  deviceMemory<dfloat> o_cubvgeoCurv;
+  memory<dfloat> cubsgeoCurv;          //surface geometric data at cubature points
+  deviceMemory<dfloat> o_cubsgeoCurv;
+  memory<dfloat> cubggeoCurv;          //second type volume geometric data at cubature points
+  deviceMemory<dfloat> o_cubggeoCurv;
+
+  memory<dfloat> hs; 
+  deviceMemory<dfloat> o_hs;
 
   /*************************/
   /* MPI Data              */
@@ -332,6 +385,9 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         CubatureSetupHex3D();
         break;
+      case Mesh::CURVEDTRIANGLES:
+        CubatureSetupTri2DCurv();
+        break;
     }
   }
 
@@ -356,6 +412,9 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         CubaturePhysicalNodesHex3D();
         break;
+      case Mesh::CURVEDTRIANGLES:
+        CubaturePhysicalNodesTri2D();
+        break;
     }
   }
 
@@ -375,6 +434,9 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         PlotInterpHex3D(q, Iq, scratch);
         break;
+      case Mesh::CURVEDTRIANGLES:
+        PlotInterpTri2D(q, Iq, scratch);
+        break;
     }
   }
 
@@ -393,6 +455,9 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         MassMatrixKernelSetupHex3D(Nfields);
         break;
+      case Mesh::CURVEDTRIANGLES:
+        MassMatrixKernelSetupTri2D(Nfields);
+        break;
     }
   }
 
@@ -406,6 +471,8 @@ class mesh_t {
         return ElementCharacteristicLengthTet3D(e);
       case Mesh::HEXAHEDRA:
         return ElementCharacteristicLengthHex3D(e);
+      case Mesh::CURVEDTRIANGLES:
+        return ElementCharacteristicLengthTri2DCurv(e);
       default:
         return 0.0;
     }
@@ -446,6 +513,9 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         SetupBoxHex3D();
         break;
+      case Mesh::CURVEDTRIANGLES:
+        SetupBoxTri2D();
+        break;
     }
   }
   void SetupBoxTri2D();
@@ -467,6 +537,9 @@ class mesh_t {
         break;
       case Mesh::HEXAHEDRA:
         SetupPmlBoxHex3D();
+        break;
+      case Mesh::CURVEDTRIANGLES:
+        SetupPmlBoxTri2D();
         break;
     }
   }
@@ -496,9 +569,13 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         ReadGmshHex3D(fileName);
         break;
+      case Mesh::CURVEDTRIANGLES:
+        ReadGmshTri2DCurv(fileName);
+        break;
     }
   }
   void ReadGmshTri2D(const std::string fileName);
+   void ReadGmshTri2DCurv(const std::string fileName);
   void ReadGmshTri3D(const std::string fileName);
   void ReadGmshQuad2D(const std::string fileName);
   void ReadGmshQuad3D(const std::string fileName);
@@ -519,6 +596,9 @@ class mesh_t {
         break;
       case Mesh::HEXAHEDRA:
         ReferenceNodesHex3D();
+        break;
+      case Mesh::CURVEDTRIANGLES:
+        ReferenceNodesTri2D();
         break;
     }
   }
@@ -551,6 +631,8 @@ class mesh_t {
   /* build global gather scatter ops */
   void GatherScatterSetup();
 
+  void SetupVToETri2D();
+
   /* compute x,y,z coordinates of each node */
   void PhysicalNodes() {
     switch (elementType) {
@@ -572,9 +654,13 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         PhysicalNodesHex3D();
         break;
+      case Mesh::CURVEDTRIANGLES:
+        PhysicalNodesTri2DCurv();
+        break;
     }
   }
   void PhysicalNodesTri2D();
+  void PhysicalNodesTri2DCurv();
   void PhysicalNodesTri3D();
   void PhysicalNodesQuad2D();
   void PhysicalNodesQuad3D();
@@ -602,9 +688,13 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         GeometricFactorsHex3D();
         break;
+      case Mesh::CURVEDTRIANGLES:
+        GeometricFactorsTri2DCurv();
+        break;
     }
   }
   void GeometricFactorsTri2D();
+  void GeometricFactorsTri2DCurv();
   void GeometricFactorsTri3D();
   void GeometricFactorsQuad2D();
   void GeometricFactorsQuad3D();
@@ -631,9 +721,13 @@ class mesh_t {
       case Mesh::HEXAHEDRA:
         SurfaceGeometricFactorsHex3D();
         break;
+      case Mesh::CURVEDTRIANGLES:
+        SurfaceGeometricFactorsTri2DCurv();
+        break;
     }
   }
   void SurfaceGeometricFactorsTri2D();
+  void SurfaceGeometricFactorsTri2DCurv();
   void SurfaceGeometricFactorsTri3D();
   void SurfaceGeometricFactorsQuad2D();
   void SurfaceGeometricFactorsQuad3D();
@@ -641,11 +735,13 @@ class mesh_t {
   void SurfaceGeometricFactorsHex3D();
 
   void CubatureSetupTri2D();
+  void CubatureSetupTri2DCurv();
   void CubatureSetupQuad2D();
   void CubatureSetupTet3D();
   void CubatureSetupHex3D();
 
   void CubaturePhysicalNodesTri2D();
+  void CubaturePhysicalNodesTri2DCurv();
   void CubaturePhysicalNodesTri3D();
   void CubaturePhysicalNodesQuad2D();
   void CubaturePhysicalNodesQuad3D();
@@ -663,6 +759,7 @@ class mesh_t {
   void MassMatrixKernelSetupHex3D(int Nfields);
 
   dfloat ElementCharacteristicLengthTri2D(dlong e);
+  dfloat ElementCharacteristicLengthTri2DCurv(dlong e);
   dfloat ElementCharacteristicLengthQuad2D(dlong e);
   dfloat ElementCharacteristicLengthTet3D(dlong e);
   dfloat ElementCharacteristicLengthHex3D(dlong e);
@@ -773,11 +870,25 @@ class mesh_t {
                            const memory<dfloat> _r,
                            const memory<dfloat> _s,
                            memory<dfloat>& _D);
+  static void DwmatrixTri2D(const int _N,
+                           const memory<dfloat> _r,
+                           const memory<dfloat> _s,
+                           memory<dfloat>& _Dw);
+  static void DmatrixTri2DCurv(const int _N,
+                          const memory<dfloat> _r,
+                          const memory<dfloat> _s,
+                          const memory<dfloat> _cubr,
+                          const memory<dfloat> _cubs,
+                          memory<dfloat>& _D);
   static void LIFTmatrixTri2D(const int _N,
                               const memory<int> _faceNodes,
                               const memory<dfloat> _r,
                               const memory<dfloat> _s,
+                              memory<dfloat>& _invV1DsT,
+                              memory<dfloat>& _MM1DsT,
                               memory<dfloat>& _LIFT);
+  static void perfectDecayTri2D(const int _N,
+                              memory<dfloat>& _perfectDecay2);
   static void SurfaceMassMatrixTri2D(const int _N,
                                      const memory<dfloat> _MM,
                                      const memory<dfloat> _LIFT,
@@ -806,12 +917,25 @@ class mesh_t {
                                    const memory<dfloat> _cubr,
                                    const memory<dfloat> _cubs,
                                    memory<dfloat>& _cubProject);
+  static void invMassMatrixTri2DCurv(const int _Np,const int _cubNp,
+                             const memory<dfloat> cubInterp,
+                             const memory<dfloat> J,
+                             const memory<dfloat> w,
+                             memory<dfloat>& _MM);
   static void CubatureWeakDmatricesTri2D(const int _N,
                                          const memory<dfloat> _r,
                                          const memory<dfloat> _s,
                                          const memory<dfloat> _cubr,
                                          const memory<dfloat> _cubs,
                                          memory<dfloat>& _cubPDT);
+  static void CubatureWeakDmatricesTri2DCurv(const int _N,
+                                        const memory<dfloat> _r,
+                                        const memory<dfloat> _s,
+                                        const memory<dfloat> _cubr,
+                                        const memory<dfloat> _cubs,
+                                        const memory<dfloat> _MMinv,
+                                        const memory<dfloat> _cubD,
+                                        memory<dfloat>& _cubPDT);
   static void CubatureSurfaceMatricesTri2D(const int _N,
                                            const memory<dfloat> _r,
                                            const memory<dfloat> _s,
@@ -820,6 +944,15 @@ class mesh_t {
                                            const memory<dfloat> _intw,
                                            memory<dfloat>& _intInterp,
                                            memory<dfloat>& _intLIFT);
+  static void CubatureSurfaceMatricesTri2DCurv(const int _N,
+                                          const memory<dfloat> _r,
+                                          const memory<dfloat> _s,
+                                          const memory<int> _faceNodes,
+                                          const memory<dfloat> _intr,
+                                          const memory<dfloat> _intw,
+                                          const memory<dfloat> _MMinv,
+                                          memory<dfloat>& _intInterp,
+                                          memory<dfloat>& _intLIFT);                                        
   static void SEMFEMInterpMatrixTri2D(const int _N,
                                       const memory<dfloat> _r,
                                       const memory<dfloat> _s,

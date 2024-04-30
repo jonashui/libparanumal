@@ -39,7 +39,10 @@ mesh_t mesh_t::SetupRingPatch(){
   mesh_t mesh = *this;
 
   //just reuse the current mesh if there are no neighbors
-  if (size==1) return mesh;
+  if (size==1) {
+      mesh.SetupVToETri2D();
+     return mesh;
+  }
 
   // single process communicator for new mesh
   mesh.comm = comm.Split(rank, rank);
@@ -119,6 +122,7 @@ mesh_t mesh_t::SetupRingPatch(){
   // label local/global gather elements
   mesh.GatherScatterSetup();
 
+  mesh.SetupVToETri2D();
   return mesh;
 }
 

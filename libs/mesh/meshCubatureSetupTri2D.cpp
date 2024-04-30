@@ -29,9 +29,8 @@ SOFTWARE.
 namespace libp {
 
 void mesh_t::CubatureSetupTri2D(){
-
   /* Cubature data */
-  cubN = 2*N; //cubature order
+  cubN = 3*(N+1); //cubature order
   CubatureNodesTri2D(cubN, cubNp, cubr, cubs, cubw);
 
   InterpolationMatrixTri2D(N, r, s, cubr, cubs, cubInterp);

@@ -30,7 +30,7 @@ namespace libp {
 
 void mesh_t::Setup(platform_t& _platform, meshSettings_t& _settings,
                    comm_t _comm){
-
+  
   platform = _platform;
   settings = _settings;
   props = platform.props();
@@ -65,7 +65,7 @@ void mesh_t::Setup(platform_t& _platform, meshSettings_t& _settings,
     // partition elements using parAdogs
     Partition();
   }
-
+  
   // load reference (r,s) element nodes
   settings.getSetting("POLYNOMIAL DEGREE", N);
   ReferenceNodes();
@@ -82,6 +82,7 @@ void mesh_t::Setup(platform_t& _platform, meshSettings_t& _settings,
   // connect face vertices
   ConnectFaceVertices();
 
+  
   // connect face nodes
   ConnectFaceNodes();
 
@@ -92,10 +93,12 @@ void mesh_t::Setup(platform_t& _platform, meshSettings_t& _settings,
   PhysicalNodes();
 
   // compute geometric factors
+  
   GeometricFactors();
-
+  
   // compute surface geofacs
   SurfaceGeometricFactors();
+  
 
   // label local/global gather elements
   GatherScatterSetup();

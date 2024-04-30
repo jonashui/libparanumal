@@ -82,6 +82,8 @@ endif
 ADVECTION_LIBP_LIBS=timeStepper mesh parAdogs ogs linAlg core
 
 #includes
+#INCLUDES=${LIBP_INCLUDES} -I $$MODULE_OPENBLAS_BASE_DIR/include \
+				 -I.
 INCLUDES=${LIBP_INCLUDES} \
 				 -I.
 
@@ -93,8 +95,11 @@ DEFINES =${LIBP_DEFINES} \
 ADVECTION_CXXFLAGS=${LIBP_CXXFLAGS} ${DEFINES} ${INCLUDES}
 
 #link libraries
+#LIBS=-L${LIBP_LIBS_DIR} $(addprefix -l,$(ADVECTION_LIBP_LIBS)) \
+     ${LIBP_LIBS} -L $$MODULE_OPENBLAS_BASE_DIR/lib -lopenblas
+
 LIBS=-L${LIBP_LIBS_DIR} $(addprefix -l,$(ADVECTION_LIBP_LIBS)) \
-     ${LIBP_LIBS}
+     ${LIBP_LIBS} -L $$MODULE_OPENBLAS_BASE_DIR/lib -lopenblas
 
 #link flags
 LFLAGS=${ADVECTION_CXXFLAGS} ${LIBS}

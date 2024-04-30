@@ -568,10 +568,86 @@ void mesh_t::DmatrixTri2D(const int _N,
   linAlg_t::matrixRightSolve(_Np, _Np, Vs, _Np, _Np, V, _Ds);
 }
 
+void mesh_t::DwmatrixTri2D(const int _N,
+                          const memory<dfloat> _r,
+                          const memory<dfloat> _s,
+                          memory<dfloat>& _Dw){
+
+  const int _Np = (_N+1)*(_N+2)/2;
+
+  memory<dfloat> V, Vr, Vs;
+  VandermondeTri2D(_N, _r, _s, V);
+  GradVandermondeTri2D(_N, _r, _s, Vr, Vs);
+
+  memory<dfloat> Dr, Ds,invMM;
+  Dr.malloc(_Np*_Np);
+  Ds.malloc(_Np*_Np);
+  invMM.malloc(_Np*_Np);
+  for(int n=0;n<_Np;++n){
+    for(int m=0;m<_Np;++m){
+      dfloat res = 0.0, resr = 0.0, ress =0.0;
+      for(int i=0;i<_Np;++i){
+        res += V[n*_Np+i]*V[m*_Np+i];
+        resr += V[n*_Np+i]*Vr[m*_Np+i];
+        ress += V[n*_Np+i]*Vs[m*_Np+i];
+      }
+      Dr[n*_Np + m] = resr;
+      Ds[n*_Np + m] = ress;
+      invMM[n*_Np + m] = res;
+    }
+  }
+
+  //Dr = Vr/V, Ds = Vs/V
+  _Dw.malloc(2*_Np*_Np);
+  memory<dfloat> _Drw = _Dw + 0*_Np*_Np;
+  memory<dfloat> _Dsw = _Dw + 1*_Np*_Np;
+  linAlg_t::matrixRightSolve(_Np, _Np, Dr, _Np, _Np, invMM, _Drw);
+  linAlg_t::matrixRightSolve(_Np, _Np, Ds, _Np, _Np, invMM, _Dsw);
+
+  /*
+  for(int n=0;n<_Np;++n){
+    for(int m=0;m<_Np;++m){
+      printf("%lf, ",_Dsw[n*_Np + m]);
+    }
+    printf("\n");
+  }
+  */
+}
+
+
+
+
+void mesh_t::DmatrixTri2DCurv(const int _N,
+                          const memory<dfloat> _r,
+                          const memory<dfloat> _s,
+                          const memory<dfloat> _cubr,
+                          const memory<dfloat> _cubs,
+                          memory<dfloat>& _D){
+
+  const int _Np = (_N+1)*(_N+2)/2;
+  const int _cubNp = _cubr.length();
+
+  memory<dfloat> V, Vr, Vs;
+  VandermondeTri2D(_N, _r, _s, V);
+  GradVandermondeTri2D(_N, _cubr, _cubs, Vr, Vs);
+
+  //Dr = Vr/V, Ds = Vs/V
+  _D.malloc(2*_cubNp*_Np);
+  memory<dfloat> _Dr = _D + 0*_cubNp*_Np;
+  memory<dfloat> _Ds = _D + 1*_cubNp*_Np;
+  linAlg_t::matrixRightSolve(_cubNp, _Np, Vr, _Np, _Np, V, _Dr);
+  linAlg_t::matrixRightSolve(_cubNp, _Np, Vs, _Np, _Np, V, _Ds);
+}
+
+
+
+
 void mesh_t::LIFTmatrixTri2D(const int _N,
                              const memory<int> _faceNodes,
                              const memory<dfloat> _r,
                              const memory<dfloat> _s,
+                             memory<dfloat>& _invV1DsT,
+                             memory<dfloat>& _MM1DsT,
                              memory<dfloat>& _LIFT){
 
   const int _Nfp = (_N+1);
@@ -582,6 +658,8 @@ void mesh_t::LIFTmatrixTri2D(const int _N,
 
   memory<dfloat> r1D(_Nfp);
 
+  _invV1DsT.malloc(_Nfaces*_Nfp*_Nfp);
+  _MM1DsT.malloc(_Nfaces*_Nfp*_Nfp);
   for (int f=0;f<_Nfaces;f++) {
     memory<dfloat> rFace;
     if (f==0) rFace = _r;
@@ -591,7 +669,8 @@ void mesh_t::LIFTmatrixTri2D(const int _N,
     for (int i=0;i<_Nfp;i++)
       r1D[i] = rFace[_faceNodes[f*_Nfp+i]];
 
-    memory<dfloat> V1D, MM1D;
+    memory<dfloat> V1D;
+    memory<dfloat> MM1D;
     Vandermonde1D(_N, r1D, V1D);
     MassMatrix1D(_Nfp, V1D, MM1D);
 
@@ -601,6 +680,12 @@ void mesh_t::LIFTmatrixTri2D(const int _N,
         E[fid*_Nfaces*_Nfp + i + f*_Nfp] = MM1D[j*_Nfp+i];
       }
     }
+    linAlg_t::matrixInverse(_Nfp, V1D);
+
+    memory<dfloat> invV1DfT = _invV1DsT + f*_Nfp*_Nfp;
+    memory<dfloat> MM1DfT = _MM1DsT + f*_Nfp*_Nfp;
+    linAlg_t::matrixTranspose(_Nfp, _Nfp, V1D, _Nfp, invV1DfT, _Nfp);
+    linAlg_t::matrixTranspose(_Nfp, _Nfp, MM1D, _Nfp, MM1DfT, _Nfp);
   }
 
   memory<dfloat> V;
@@ -620,6 +705,24 @@ void mesh_t::LIFTmatrixTri2D(const int _N,
       }
     }
   }
+}
+
+void mesh_t::perfectDecayTri2D(const int _N,
+                             memory<dfloat>& _perfectDecay2){
+
+_perfectDecay2.malloc(_N+1);
+dfloat sum = 0.0;
+for (int n=1;n<_N+1;n++) {
+  sum += pow((double)n,-2.0*_N);
+}
+
+_perfectDecay2[0]=0;
+for (int n=1;n<_N+1;n++) {
+  _perfectDecay2[n]=pow((double)n,-2*_N)/sum;
+  //printf("%lf\n",_perfectDecay2[n]);
+}
+
+  
 }
 
 void mesh_t::SurfaceMassMatrixTri2D(const int _N,
@@ -751,6 +854,9 @@ void mesh_t::CubatureWeakDmatricesTri2D(const int _N,
   VandermondeTri2D(_N, _cubr, _cubs, cubV);
   GradVandermondeTri2D(_N, _cubr, _cubs, cubVr, cubVs);
 
+  memory<dfloat> cubD;
+  DmatrixTri2D(_N,_cubr,_cubs,cubD);
+
   // cubPDrT = V*transpose(cVr);
   // cubPDsT = V*transpose(cVs);
   _cubPDT.malloc(2*_Np*_cubNp);
@@ -769,6 +875,68 @@ void mesh_t::CubatureWeakDmatricesTri2D(const int _N,
     }
   }
 }
+
+void mesh_t::invMassMatrixTri2DCurv(const int _Np,const int _cubNp,
+                             const memory<dfloat> cubInterp,
+                             const memory<dfloat> J,
+                             const memory<dfloat> w,
+                             memory<dfloat>& _MM){
+
+  // massMatrix = inv(V')*inv(V) = inv(V*V')
+  //_MM.malloc(_Np*_Np);
+  for(int n=0;n<_Np;++n){
+    for(int m=0;m<_Np;++m){
+      dfloat res = 0;
+      for(int i=0;i<_cubNp;++i){
+        res += cubInterp[i*_Np+n]*J[i]*w[i]*cubInterp[i*_Np+m];
+      }
+      _MM[n*_Np + m] = res;
+      //printf("%lf,",res);
+    }
+    //printf("\n");
+  }
+  linAlg_t::matrixInverse(_Np, _MM);
+}
+
+void mesh_t::CubatureWeakDmatricesTri2DCurv(const int _N,
+                                        const memory<dfloat> _r,
+                                        const memory<dfloat> _s,
+                                        const memory<dfloat> _cubr,
+                                        const memory<dfloat> _cubs,
+                                        const memory<dfloat> _MMinv,
+                                        const memory<dfloat> _cubD,
+                                        memory<dfloat>& _cubPDT){
+
+  const int _Np = (_N+1)*(_N+2)/2;
+  const int _cubNp = _cubr.length();
+
+  //memory<dfloat> MM;
+  // DMatrixTri2D(N, _r, _s, _cubr, _cubs, cubD);
+  // MassMatrixTri2DCurv(_Np,_cubNp,_cubInterp,_J,_W,MM)
+
+  // cubPDrT = V*transpose(cVr);
+  // cubPDsT = V*transpose(cVs);
+  //_cubPDT.malloc(2*_Np*_cubNp);
+  memory<dfloat> _cubPDrT = _cubPDT + 0*_Np*_cubNp;
+  memory<dfloat> _cubPDsT = _cubPDT + 1*_Np*_cubNp;
+  for(int n=0;n<_Np;++n){
+    for(int m=0;m<_cubNp;++m){
+      dfloat resPDrT = 0.0, resPDsT = 0.0;
+      for(int i=0;i<_Np;++i){
+        dfloat MMni = _MMinv[n*_Np+i];
+        resPDrT += MMni*_cubD[m*_Np+i+0*_Np*_cubNp];
+        resPDsT += MMni*_cubD[m*_Np+i+1*_Np*_cubNp];
+      }
+      _cubPDrT[n*_cubNp+m] = resPDrT;
+      _cubPDsT[n*_cubNp+m] = resPDsT;
+      //printf("%lf,",resPDrT);
+    }
+    //printf("\n");
+  }
+}
+
+
+
 
 void mesh_t::CubatureSurfaceMatricesTri2D(const int _N,
                                           const memory<dfloat> _r,
@@ -831,6 +999,74 @@ void mesh_t::CubatureSurfaceMatricesTri2D(const int _N,
     }
   }
 }
+
+void mesh_t::CubatureSurfaceMatricesTri2DCurv(const int _N,
+                                          const memory<dfloat> _r,
+                                          const memory<dfloat> _s,
+                                          const memory<int> _faceNodes,
+                                          const memory<dfloat> _intr,
+                                          const memory<dfloat> _intw,
+                                          const memory<dfloat> _MMinv,
+                                          memory<dfloat>& _intInterp,
+                                          memory<dfloat>& _intLIFT){
+  
+  const int _Np = (_N+1)*(_N+2)/2;
+  const int _Nfaces = 3;
+  const int _Nfp = _N+1;
+  const int _intNfp = _intr.length();
+
+  memory<dfloat> ir(_intNfp*_Nfaces);
+  memory<dfloat> is(_intNfp*_Nfaces);
+  memory<dfloat> iw(_intNfp*_Nfaces);
+
+  for(int n=0;n<_intNfp;++n){
+    ir[0*_intNfp + n] =  _intr[n];
+    ir[1*_intNfp + n] = -_intr[n];
+    ir[2*_intNfp + n] = -1.0;
+
+    is[0*_intNfp + n] = -1.0;
+    is[1*_intNfp + n] =  _intr[n];
+    is[2*_intNfp + n] = -_intr[n];
+
+    iw[0*_intNfp + n] =  _intw[n];
+    iw[1*_intNfp + n] =  _intw[n];
+    iw[2*_intNfp + n] =  _intw[n];
+  }
+
+  memory<dfloat> sInterp;
+  InterpolationMatrixTri2D(_N, _r, _s, ir, is, sInterp);
+
+  _intInterp.malloc(_Nfaces*_intNfp*_Nfp);
+  for(int n=0;n<_intNfp;++n){
+    for(int m=0;m<_Nfp;++m){
+      _intInterp[0*_intNfp*_Nfp + n*_Nfp + m] = sInterp[(n+0*_intNfp)*_Np+_faceNodes[0*_Nfp+m]];
+      _intInterp[1*_intNfp*_Nfp + n*_Nfp + m] = sInterp[(n+1*_intNfp)*_Np+_faceNodes[1*_Nfp+m]];
+      _intInterp[2*_intNfp*_Nfp + n*_Nfp + m] = sInterp[(n+2*_intNfp)*_Np+_faceNodes[2*_Nfp+m]];
+    }
+  }
+
+  // integration node lift matrix
+  //iLIFT = V*V'*sInterp'*diag(iw(:));
+  //_intLIFT.malloc(_Nfaces*_intNfp*_Np);
+  
+  for(int n=0;n<_Nfaces*_intNfp;++n){
+    for(int m=0;m<_Np;++m){
+      _intLIFT[m*_Nfaces*_intNfp+n] = 0.0;
+      for(int i=0;i<_Np;++i){
+        _intLIFT[m*_Nfaces*_intNfp+n] += _MMinv[m*_Np+i]*sInterp[n*_Np+i]*iw[n];
+      }
+      //printf("%lf,",_intLIFT[m*_Nfaces*_intNfp+n]);
+    }
+    //printf("\n");
+  }
+
+}
+
+
+
+
+
+
 
 void mesh_t::SEMFEMInterpMatrixTri2D(const int _N,
                                      const memory<dfloat> _r,
@@ -1204,7 +1440,7 @@ void mesh_t::CubatureNodesTri2D(const int cubTriN,
   cubTris.malloc(_cubNp);
   cubTriw.malloc(_cubNp);
 
-  const dfloat *cubTriR, *cubTriS, *cubTriW;
+  const dfloat *cubTriR=NULL, *cubTriS=NULL, *cubTriW=NULL;
   switch(cubTriN){
     case 1: cubTriR = cubTriR1; cubTriS = cubTriS1; cubTriW = cubTriW1; break;
     case 2: cubTriR = cubTriR2; cubTriS = cubTriS2; cubTriW = cubTriW2; break;

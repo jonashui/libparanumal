@@ -47,6 +47,9 @@ void mesh_t::ConnectFaceNodes(){
     case Mesh::HEXAHEDRA:
       FaceNodeMatchingHex3D(r, s, t, faceNodes, faceVertices, R);
       break;
+    case Mesh::CURVEDTRIANGLES:
+      FaceNodeMatchingTri2D(r, s, faceNodes, faceVertices, R);
+      break;
   }
 
   /* volume indices of the interior and exterior face nodes for each element */

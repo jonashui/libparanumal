@@ -77,8 +77,6 @@ void cns_t::rhsf(deviceMemory<dfloat>& o_Q, deviceMemory<dfloat>& o_RHS, const d
                     mesh.o_y,
                     mesh.o_z,
                     T,
-                    mu,
-                    gamma,
                     o_Q,
                     o_gradq);
 

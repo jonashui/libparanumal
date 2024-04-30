@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"name": "libparanumal",
+			"path": "."
+		}
+	],
+	"settings": {
+		"cmake.configureOnOpen": true,
+		"files.associations": {
+			"cmath": "c",
+			"complex": "c",
+			"*.okl": "c",
+			"*.ipp": "c",
+			"random": "c",
+			"*.tpp": "cpp"
+		},
+		"cmake.sourceDirectory": "/zhome/a6/f/146647/Desktop/libparanumal/occa"
+	}
+}

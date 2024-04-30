@@ -43,7 +43,19 @@ void mesh_t::SetElementType(const Mesh::ElementType eType) {
     faceVertices.malloc(NfaceVertices*Nfaces);
     faceVertices.copyFrom(_faceVertices[0]);
 
-  } else if (eType==Mesh::QUADRILATERALS) {
+  } else if (eType==Mesh::CURVEDTRIANGLES) {
+    elementType = Mesh::CURVEDTRIANGLES;
+
+    Nverts = 3;        // number of vertices per element
+    Nfaces = 3;        // number of faces per element
+    NfaceVertices = 2; // number of vertices per face
+
+    // vertices on each face
+    int _faceVertices[4][2] = {{0,1},{1,2},{2,0}};
+
+    faceVertices.malloc(NfaceVertices*Nfaces);
+    faceVertices.copyFrom(_faceVertices[0]);
+    } else if (eType==Mesh::QUADRILATERALS) {
     elementType = Mesh::QUADRILATERALS;
 
     Nverts = 4;        // number of vertices per element

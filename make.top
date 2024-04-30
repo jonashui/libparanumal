@@ -34,8 +34,15 @@ export LIBP_INCLUDE_DIR=${LIBP_DIR}/include
 export LIBP_LIBS_DIR=${LIBP_DIR}/libs
 export LIBP_TEST_DIR=${LIBP_DIR}/test
 
-export LIBP_BLAS_DIR?=/usr/lib/x86_64-linux-gnu/openblas-serial
-export LIBP_BLAS_LIB=-L${LIBP_BLAS_DIR} -lopenblas
+#export LIBP_BLAS_DIR?=../../3rdParty/BlasLapack
+#export LIBP_BLAS_LIB=-L../../3rdParty/BlasLapack -lBlasLapack -lgfortran #-llapack -lblas
+
+#export LIBP_BLAS_DIR?=$$MODULE_OPENBLAS_BASE_DIR/lib
+#export LIBP_BLAS_LIB=-L $$MODULE_OPENBLAS_BASE_DIR/lib -lopenblas
+
+export LIBP_BLAS_DIR?=$$MODULE_OPENBLAS_BASE_DIR
+export LIBP_BLAS_LIB=-L $$MODULE_OPENBLAS_BASE_DIR/lib -lopenblas
+
 
 #include OCCA
 export OCCA_DIR=${LIBP_DIR}/occa

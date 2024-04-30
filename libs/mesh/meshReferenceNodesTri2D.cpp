@@ -58,7 +58,20 @@ void mesh_t::ReferenceNodesTri2D(){
   linAlg_t::matrixTranspose(Np, Np, Ds, Np, DsT, Np);
   o_D = platform.malloc<dfloat>(DT);
 
-  LIFTmatrixTri2D(N, faceNodes, r, s, LIFT);
+  DwmatrixTri2D(N, r, s, Dw);
+  Drw = Dw + 0*Np*Np;
+  Dsw = Dw + 1*Np*Np;
+
+  memory<dfloat> DwT(2*Np*Np);
+  memory<dfloat> DrwT = DwT + 0*Np*Np;
+  memory<dfloat> DswT = DwT + 1*Np*Np;
+  linAlg_t::matrixTranspose(Np, Np, Drw, Np, DrwT, Np);
+  linAlg_t::matrixTranspose(Np, Np, Dsw, Np, DswT, Np);
+  o_Dw = platform.malloc<dfloat>(DwT);
+
+
+
+  LIFTmatrixTri2D(N, faceNodes, r, s,invV1DsT,MM1DsT, LIFT);
   SurfaceMassMatrixTri2D(N, MM, LIFT, sM);
 
   memory<dfloat> LIFTT(Np*Nfaces*Nfp);
@@ -69,6 +82,27 @@ void mesh_t::ReferenceNodesTri2D(){
 
   o_sM = platform.malloc<dfloat>(sMT);
   o_LIFT = platform.malloc<dfloat>(LIFTT);
+
+  o_invV1Ds = platform.malloc<dfloat>(invV1DsT);
+  o_MM1Ds = platform.malloc<dfloat>(MM1DsT);
+
+  perfectDecayTri2D(N, perfectDecay2);
+
+  o_perfectDecay2 = platform.malloc<dfloat>(perfectDecay2);
+
+  /*memory<dfloat> r2, s2;
+  NodesTri2D(2, r2, s2);
+  InterpolationMatrixTri2D(2, r2, s2, r, s, muInterp);*/
+
+  DegreeRaiseMatrixTri2D(2,N,muInterp);
+  
+  memory<dfloat> muInterpT(Np*6);
+  linAlg_t::matrixTranspose(Np, 6, muInterp, 6, muInterpT, Np);
+
+  o_muInterp = platform.malloc<dfloat>(muInterpT);
+
+
+
 
   //packed stiffness matrices
   SmatrixTri2D(N, Dr, Ds, MM, S);

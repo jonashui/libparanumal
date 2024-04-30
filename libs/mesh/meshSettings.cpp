@@ -42,7 +42,7 @@ meshSettings_t::meshSettings_t(comm_t _comm):
   newSetting("ELEMENT TYPE",
              "3",
              "Type of mesh elements (number of edges)",
-             {"3","4","6","12"});
+             {"3","4","6","12","100"});
   newSetting("ELEMENT MAP",
              "ISOPARAMETRIC",
              "Type mapping used to transform each element",

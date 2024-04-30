@@ -1,0 +1,154 @@
+/*
+
+The MIT License (MIT)
+
+Copyright (c) 2017-2022 Tim Warburton, Noel Chalmers, Jesse Chan, Ali Karakus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+
+@kernel void SWECubatureVolumeTri2D(const dlong Nelements,
+                                    @restrict const  dfloat *  cubvgeo,
+                                    @restrict const  dfloat *  cubvgeoCurv,
+                                    @restrict const  dlong *   mapCurv,
+                                    @restrict const  dfloat *  cubD,
+                                    @restrict const  dfloat *  cubPDT,
+                                    @restrict const  dfloat *  cubPDTs,
+                                    @restrict const  dfloat *  cubInterp,
+                                    @restrict const  dfloat *  cubProject,
+                                    @restrict const  dfloat *  x,
+                                    @restrict const  dfloat *  y,
+                                    @restrict const  dfloat *  z,
+                                    const dfloat t,
+                                    @restrict const  dfloat *  U,
+                                    @restrict dfloat *  rhsU){
+                                      
+  for(dlong e=0;e<Nelements;++e;@outer(0)){
+    @shared dfloat s_U[p_Nfields][p_Np];
+
+    @shared dfloat s_F[p_Nfields][p_cubNp];
+    @shared dfloat s_G[p_Nfields][p_cubNp];
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){      // for all nodes in this element
+      if(n<p_Np){
+        const dlong  qbase = e*p_Np*p_Nfields + n;
+
+        const dfloat h  =U[qbase+0*p_Np];
+        const dfloat q = U[qbase+1*p_Np];
+        const dfloat p = U[qbase+2*p_Np];
+
+
+        s_U[0][n] = h;
+        s_U[1][n] = q;
+        s_U[2][n] = p;
+      }
+    }
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){
+      //interpolate to cubature
+      dfloat h = 0., q = 0., p = 0.;
+      #pragma unroll p_Np
+        for(int i=0;i<p_Np;++i){
+          const dfloat cIni = cubInterp[n+i*p_cubNp];
+          h += cIni*s_U[0][i];
+          q += cIni*s_U[1][i];
+          p += cIni*s_U[2][i];
+        }
+
+      // F0 = ru, G0 = rv
+      s_F[0][n] = q;
+      s_G[0][n] = p;
+
+      // F1 = 2*mu*T11 - (ru^2+p), G1 = 2*mu*T12 - (rvu)
+      s_F[1][n] = q*q/h+p_half*p_grav*h*h;
+      s_G[1][n] = q*p/h;
+
+      // F2 = 2*mu*T21 - (ruv), G2 = 2*mu*T22 - (rv^2+p)
+      s_F[2][n] = q*p/h;
+      s_G[2][n] = p*p/h+p_half*p_grav*h*h;
+    }
+
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){
+      if (n<p_Np) {
+        // prefetch geometric factors (constant on triangle)
+        const dfloat drdx = cubvgeo[e*p_Nvgeo + p_RXID];
+        const dfloat drdy = cubvgeo[e*p_Nvgeo + p_RYID];
+        const dfloat dsdx = cubvgeo[e*p_Nvgeo + p_SXID];
+        const dfloat dsdy = cubvgeo[e*p_Nvgeo + p_SYID];
+
+        dfloat df0dr = 0.f, df0ds = 0.f;
+        dfloat df1dr = 0.f, df1ds = 0.f;
+        dfloat df2dr = 0.f, df2ds = 0.f;
+        dfloat dg0dr = 0.f, dg0ds = 0.f;
+        dfloat dg1dr = 0.f, dg1ds = 0.f;
+        dfloat dg2dr = 0.f, dg2ds = 0.f;
+
+        #pragma unroll p_cubNp
+          for(int i=0;i<p_cubNp;++i){
+            const dfloat cDrni = cubPDT[n+i*p_Np+0*p_cubNp*p_Np];
+            const dfloat cDsni = cubPDT[n+i*p_Np+1*p_cubNp*p_Np];
+
+            df0dr += cDrni*s_F[0][i];
+            df1dr += cDrni*s_F[1][i];
+            df2dr += cDrni*s_F[2][i];
+            df0ds += cDsni*s_F[0][i];
+            df1ds += cDsni*s_F[1][i];
+            df2ds += cDsni*s_F[2][i];
+
+            dg0dr += cDrni*s_G[0][i];
+            dg1dr += cDrni*s_G[1][i];
+            dg2dr += cDrni*s_G[2][i];
+            dg0ds += cDsni*s_G[0][i];
+            dg1ds += cDsni*s_G[1][i];
+            dg2ds += cDsni*s_G[2][i];
+          }
+
+      const dfloat rhsU0 = drdx*df0dr + dsdx*df0ds + drdy*dg0dr + dsdy*dg0ds;
+      const dfloat rhsU1 = drdx*df1dr + dsdx*df1ds + drdy*dg1dr + dsdy*dg1ds;
+      const dfloat rhsU2 = drdx*df2dr + dsdx*df2ds + drdy*dg2dr + dsdy*dg2ds;
+
+      const dlong  idx = e*p_Np + n;
+      const dfloat xl = x[idx]; const dfloat yl = y[idx];
+
+      const dfloat s1=-sin(t-xl)*cos(t-yl)-cos(t-xl)*sin(t-yl)+cos(t-xl)+cos(t-yl);
+      const dfloat s2=-cos(-xl+t)-sin(-xl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)/ ((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2) ) 
+               -2*sin(-xl + t)*cos(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2) 
+               +p_grav*(cos(-xl + t)*cos(-yl + t) + 2)*sin(-xl + t)*cos(-yl + t) 
+               -sin(-yl + t)*sin(-yl + t)*sin(-xl + t)*cos(-xl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))
+               -cos(-yl + t)*sin(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2);
+      const dfloat s3=-cos(-yl + t) - sin(-yl + t)*sin(-xl + t)*sin(-xl + t)*cos(-yl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))
+              - sin(-yl + t)*cos(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2)
+              - sin(-yl + t)*sin(-yl + t)*sin(-yl + t)*cos(-xl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))
+              - 2*sin(-yl + t)*cos(-yl + t)/(cos(-xl + t)*cos(-yl + t) + 2)
+              + p_grav*(cos(-xl + t)*cos(-yl + t) + 2)*cos(-xl + t)*sin(-yl + t);
+
+      const dlong base = e*p_Np*p_Nfields + n;
+
+      // move to rhs
+      rhsU[base+0*p_Np] = rhsU0+s1;
+      rhsU[base+1*p_Np] = rhsU1+s2;
+      rhsU[base+2*p_Np] = rhsU2+s3;
+      }
+    }
+  }
+}
+
+

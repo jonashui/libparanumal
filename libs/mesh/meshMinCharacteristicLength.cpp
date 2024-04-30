@@ -29,19 +29,22 @@ SOFTWARE.
 namespace libp {
 
 dfloat mesh_t::MinCharacteristicLength(){
-
+  hs.malloc(Nelements);
   dfloat hmin = std::numeric_limits<dfloat>::max();
   for(dlong e=0;e<Nelements;++e){
     dfloat h = ElementCharacteristicLength(e);
+    hs[e]=h;
 
     hmin = std::min(hmin, h);
   }
+  o_hs = platform.malloc<dfloat>(Nelements,hs);
 
   // MPI_Allreduce to get global minimum h
   comm.Allreduce(hmin, Comm::Min);
   return hmin;
 }
 
+/*
 dfloat mesh_t::ElementCharacteristicLengthTri2D(dlong e) {
 
   dfloat h = std::numeric_limits<dfloat>::max();
@@ -58,6 +61,60 @@ dfloat mesh_t::ElementCharacteristicLengthTri2D(dlong e) {
   }
   return h;
 }
+*/
+dfloat mesh_t::ElementCharacteristicLengthTri2D(dlong e) {
+  dfloat h = std::numeric_limits<dfloat>::max();
+  
+  dlong id = e*Nverts+0;
+
+  dfloat xe1 = EX[id+0]; /* x-coordinates of vertices */
+  dfloat xe2 = EX[id+1];
+  dfloat xe3 = EX[id+2];
+
+  dfloat ye1 = EY[id+0]; /* y-coordinates of vertices */
+  dfloat ye2 = EY[id+1];
+  dfloat ye3 = EY[id+2];
+
+  dfloat len1 = sqrt((xe2-xe1)*(xe2-xe1)+(ye2-ye1)*(ye2-ye1));
+  dfloat len2 = sqrt((xe3-xe2)*(xe3-xe2)+(ye3-ye2)*(ye3-ye2));
+  dfloat len3 = sqrt((xe1-xe3)*(xe1-xe3)+(ye1-ye3)*(ye1-ye3));
+
+  dfloat sper = (len1 + len2 + len3)/2.0; 
+  dfloat Area = sqrt(sper*(sper-len1)*(sper-len2)*(sper-len3));
+
+  dfloat hest = Area/sper;
+
+  h = std::min(h, hest);
+  return h;
+}
+
+dfloat mesh_t::ElementCharacteristicLengthTri2DCurv(dlong e) {
+  dfloat h = std::numeric_limits<dfloat>::max();
+  
+  dlong id = e*Nverts+0;
+
+  dfloat xe1 = EX[id+0]; /* x-coordinates of vertices */
+  dfloat xe2 = EX[id+1];
+  dfloat xe3 = EX[id+2];
+
+  dfloat ye1 = EY[id+0]; /* y-coordinates of vertices */
+  dfloat ye2 = EY[id+1];
+  dfloat ye3 = EY[id+2];
+
+  dfloat len1 = sqrt((xe2-xe1)*(xe2-xe1)+(ye2-ye1)*(ye2-ye1));
+  dfloat len2 = sqrt((xe3-xe2)*(xe3-xe2)+(ye3-ye2)*(ye3-ye2));
+  dfloat len3 = sqrt((xe1-xe3)*(xe1-xe3)+(ye1-ye3)*(ye1-ye3));
+
+  dfloat sper = (len1 + len2 + len3)/2.0; 
+  dfloat Area = sqrt(sper*(sper-len1)*(sper-len2)*(sper-len3));
+
+  dfloat hest = Area/sper;
+
+  h = std::min(h, hest);
+  return h;
+}
+
+
 
 dfloat mesh_t::ElementCharacteristicLengthQuad2D(dlong e) {
 

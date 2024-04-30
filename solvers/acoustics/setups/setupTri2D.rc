@@ -4,8 +4,10 @@
 [DATA FILE]
 data/acousticsGaussian2D.h
 
+
 [MESH FILE]
-BOX
+#BOX
+../../meshes/meshAnalytic.msh
 
 [MESH DIMENSION]
 2
@@ -38,19 +40,19 @@ CUDA
 0
 
 [TIME INTEGRATOR]
-DOPRI5
+LSERK4
 
 [START TIME]
 0
 
 [FINAL TIME]
-10
+20
 
 [OUTPUT INTERVAL]
 1
 
 [OUTPUT TO FILE]
-TRUE
+FALSE
 
 [OUTPUT FILE NAME]
 acoustics

@@ -1,0 +1,304 @@
+/*
+
+The MIT License (MIT)
+
+Copyright (c) 2017-2022 Tim Warburton, Noel Chalmers, Jesse Chan, Ali Karakus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
+@kernel void SWEAVGradSurfaceTri2DCurv(const dlong Nelements,
+                                 @restrict const  dfloat *  cubsgeo,
+                                 @restrict const  dfloat *  cubsgeoCurv,
+                                 @restrict const  dlong *   mapCurv,
+                                 @restrict const  dfloat *  LIFT,
+                                 @restrict const  dlong  *  vmapM,
+                                 @restrict const  dlong  *  vmapP,
+                                 @restrict const  int    *  EToB,
+                                 @restrict const  dfloat *  x,
+                                 @restrict const  dfloat *  y,
+                                 @restrict const  dfloat *  z,
+                                 @restrict const  dfloat *  intInterp,
+                                 @restrict const  dfloat *  intLIFT,
+                                 @restrict const  dfloat *  intLIFTs,
+                                 @restrict const  dfloat *  intx,
+                                 @restrict const  dfloat *  inty,
+                                 @restrict const  dfloat *  intz,
+                                           const  dfloat time,
+                                 @restrict const  dfloat *  U,
+                                 @restrict        dfloat *  gradU){
+
+  // for all elements
+  for(dlong e=0;e<Nelements;e++;@outer(0)){
+    
+    // @shared storage for flux terms
+    @shared dfloat s_UM[p_Nfields][p_NfacesNfp];
+    @shared dfloat s_UP[p_Nfields][p_NfacesNfp];
+
+    @shared dfloat s_gradflux[p_Ngrads][p_intNfpNfaces];
+
+    if(mapCurv[e] < 0) {
+        for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){
+        if(n<p_NfacesNfp) {
+        // indices of negative and positive traces of face node
+        const dlong id  = e*p_Nfp*p_Nfaces + n;
+        const dlong idM = vmapM[id];
+        const dlong idP = vmapP[id];
+
+        // load traces
+        const dlong eM = e;
+        const dlong eP = idP/p_Np;
+        const int vidM = idM%p_Np;
+        const int vidP = idP%p_Np;
+
+        const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+        const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
+
+
+        s_UM[0][n] = U[qbaseM + 0*p_Np];
+        s_UM[1][n] = U[qbaseM + 1*p_Np];
+        s_UM[2][n] = U[qbaseM + 2*p_Np];
+    
+        s_UP[0][n] = U[qbaseP + 0*p_Np];
+        s_UP[1][n] = U[qbaseP + 1*p_Np];
+        s_UP[2][n] = U[qbaseP + 2*p_Np];
+      }
+    }
+    // interpolate to surface integration nodes
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+        if(n<p_intNfpNfaces){
+        // find face that owns this node
+        const int face = n/p_intNfp;
+
+
+        // load surface geofactors for this face
+        const dlong sid    = p_Nsgeo*(e*p_Nfaces+face);
+        const dfloat nx   = cubsgeo[sid+p_NXID];
+        const dfloat ny   = cubsgeo[sid+p_NYID];
+        const dfloat sJ   = cubsgeo[sid+p_SJID];
+        const dfloat invJ = cubsgeo[sid+p_IJID];
+
+        dfloat hM  = 0., qM = 0., pM=0.;
+        dfloat hP  = 0., qP = 0., pP=0.;
+
+        // local block interpolation (face nodes to integration nodes)
+        #pragma unroll p_Nfp
+          for(int m=0;m<p_Nfp;++m){
+            const dfloat iInm = intInterp[n+m*p_Nfaces*p_intNfp];
+            const int fm = face*p_Nfp+m;
+            hM  += iInm*s_UM[0][fm];
+            qM += iInm*s_UM[1][fm];
+            pM += iInm*s_UM[2][fm];
+            hP  += iInm*s_UP[0][fm];
+            qP += iInm*s_UP[1][fm];
+            pP += iInm*s_UP[2][fm];
+          }
+
+        const dfloat uM = qM/hM;
+        const dfloat vM = pM/hM;
+
+        // apply boundary condition
+        const int bc = EToB[face+p_Nfaces*e];
+        const dlong id = p_intNfp*p_Nfaces*e + n;
+        if(bc>0){
+          SWEAVDirichletConditions2D(bc, time, intx[id], inty[id], nx, ny, hM, qM, pM, &hP, &qP, &pP);
+        }
+
+        dfloat uP;
+        dfloat vP;
+
+        {
+          uP = qP/hP;
+          vP = pP/hP;
+        }
+
+        // evaluate "flux" terms: (sJ/J)*(A*nx+B*ny)*(q^* - q^-)
+        const dfloat sc = 0.5f*invJ*sJ;
+
+        s_gradflux[0][n] = sc*nx*(hP+hM);
+        s_gradflux[1][n] = sc*ny*(hP+hM);
+        s_gradflux[2][n] = sc*nx*(uP+uM);
+        s_gradflux[3][n] = sc*ny*(uP+uM);
+        s_gradflux[4][n] = sc*nx*(vP+vM);
+        s_gradflux[5][n] = sc*ny*(vP+vM);
+      }
+    }
+
+    // for each node in the element
+      for(int n=0;n<p_maxNodes;++n;@inner(0)){
+          if(n<p_Np){
+            // load rhs data from volume fluxes
+            dfloat LThxflux = 0.f, LThyflux = 0.f;
+            dfloat LTuxflux = 0.f, LTuyflux = 0.f;
+            dfloat LTvxflux = 0.f, LTvyflux = 0.f;
+
+            // rhs += LIFT*((sJ/J)*(A*nx+B*ny)*(q^* - q^-))
+          #pragma unroll p_intNfpNfaces
+          for(int m=0;m<p_intNfpNfaces;++m){
+            const dfloat L = intLIFT[n+m*p_Np];
+            //printf("L=%lf, ",Lhflux);
+                LThxflux += L*s_gradflux[0][m];
+                LThyflux += L*s_gradflux[1][m];
+                LTuxflux += L*s_gradflux[2][m];
+                LTuyflux += L*s_gradflux[3][m];
+                LTvxflux += L*s_gradflux[4][m];
+                LTvyflux += L*s_gradflux[5][m];
+          }
+            const dlong base = e*p_Np*p_Ngrads+n;
+            gradU[base+0*p_Np] += LThxflux;
+            gradU[base+1*p_Np] += LThyflux;
+            gradU[base+2*p_Np] += LTuxflux;
+            gradU[base+3*p_Np] += LTuyflux;
+            gradU[base+4*p_Np] += LTvxflux;
+            gradU[base+5*p_Np] += LTvyflux;
+            //printf("e=%d LTqyflux=%lf\n",e,LTqyflux);
+      }
+    }
+
+    }
+    else {
+    const dlong eC = mapCurv[e];
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){
+        if(n<p_NfacesNfp) {
+        // indices of negative and positive traces of face node
+        const dlong id  = e*p_Nfp*p_Nfaces + n;
+        const dlong idM = vmapM[id];
+        const dlong idP = vmapP[id];
+
+        // load traces
+        const dlong eM = e;
+        const dlong eP = idP/p_Np;
+        const int vidM = idM%p_Np;
+        const int vidP = idP%p_Np;
+
+        const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+        const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
+
+        s_UM[0][n] = U[qbaseM + 0*p_Np];
+        s_UM[1][n] = U[qbaseM + 1*p_Np];
+        s_UM[2][n] = U[qbaseM + 2*p_Np];
+    
+        s_UP[0][n] = U[qbaseP + 0*p_Np];
+        s_UP[1][n] = U[qbaseP + 1*p_Np];
+        s_UP[2][n] = U[qbaseP + 2*p_Np];
+      }
+    }
+    // interpolate to surface integration nodes
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+        if(n<p_intNfpNfaces){
+        // find face that owns this node
+        const int face = n/p_intNfp;
+
+        // load surface geofactors for this face
+        const dlong sid   = p_Nsgeo*(p_Nfaces*p_cubNfp*eC + n);
+        const dfloat nx   = cubsgeoCurv[sid+p_NXID];
+        const dfloat ny   = cubsgeoCurv[sid+p_NYID];
+        const dfloat sJ   = cubsgeoCurv[sid+p_SJID];
+        const dfloat invJ = cubsgeoCurv[sid+p_IJID];
+
+        dfloat hM  = 0., qM = 0., pM=0.;
+        dfloat hP  = 0., qP = 0., pP=0.;
+
+        // local block interpolation (face nodes to integration nodes)
+        #pragma unroll p_Nfp
+          for(int m=0;m<p_Nfp;++m){
+            const dfloat iInm = intInterp[n+m*p_Nfaces*p_intNfp];
+            const int fm = face*p_Nfp+m;
+            hM  += iInm*s_UM[0][fm];
+            qM += iInm*s_UM[1][fm];
+            pM += iInm*s_UM[2][fm];
+            hP  += iInm*s_UP[0][fm];
+            qP += iInm*s_UP[1][fm];
+            pP += iInm*s_UP[2][fm];
+          }
+        
+        const dfloat uM = qM/hM;
+        const dfloat vM = pM/hM;
+
+        // apply boundary condition
+        const int bc = EToB[face+p_Nfaces*e];
+        const dlong id = p_intNfp*p_Nfaces*e + n;
+        if(bc>0){
+          SWEAVDirichletConditions2D(bc, time, intx[id], inty[id], nx, ny, hM, qM, pM, &hP, &qP, &pP);
+        }
+
+        dfloat uP;
+        dfloat vP;
+        
+        {
+          uP = qP/hP;
+          vP = pP/hP;
+        }
+
+        // evaluate "flux" terms: (sJ/J)*(A*nx+B*ny)*(q^* - q^-)
+        const dfloat sc = 0.5f*sJ;
+        s_gradflux[0][n] = sc*nx*(hP+hM);
+        s_gradflux[1][n] = sc*ny*(hP+hM);
+        s_gradflux[2][n] = sc*nx*(uP+uM);
+        s_gradflux[3][n] = sc*ny*(uP+uM);
+        s_gradflux[4][n] = sc*nx*(vP+vM);
+        s_gradflux[5][n] = sc*ny*(vP+vM);
+
+        //printf("s_hflux=%lf, ",s_hflux[n]);
+      }
+    }
+    // wait for all @shared memory writes of the previous inner loop to complete
+
+    // for each node in the element
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){
+      if(n<p_Np){
+        // load rhs data from volume fluxes
+        dfloat LThxflux = 0.f, LThyflux = 0.f;
+        dfloat LTuxflux = 0.f, LTuyflux = 0.f;
+        dfloat LTvxflux = 0.f, LTvyflux = 0.f;
+
+        // rhs += LIFT*((sJ/J)*(A*nx+B*ny)*(q^* - q^-))
+        //printf("e=%d\n",e);
+        #pragma unroll p_intNfpNfaces
+          for(int m=0;m<p_intNfpNfaces;++m){
+            dlong ibase=eC*p_Nfaces*p_intNfp*p_Np;
+            const dfloat L = intLIFTs[ibase+n+m*p_Np];
+            //printf("L=%lf, ",Lhflux);
+                LThxflux += L*s_gradflux[0][m];
+                LThyflux += L*s_gradflux[1][m];
+                LTuxflux += L*s_gradflux[2][m];
+                LTuyflux += L*s_gradflux[3][m];
+                LTvxflux += L*s_gradflux[4][m];
+                LTvyflux += L*s_gradflux[5][m];
+          }
+          //printf("\n_______________________\n");
+          const dlong base = e*p_Np*p_Ngrads+n;
+          //printf("e=%d LThxflux=%lf\n",e,gradU[base+0*p_Np]);
+          gradU[base+0*p_Np] += LThxflux;
+          gradU[base+1*p_Np] += LThyflux;
+          gradU[base+2*p_Np] += LTuxflux;
+          gradU[base+3*p_Np] += LTuyflux;
+          gradU[base+4*p_Np] += LTvxflux;
+          gradU[base+5*p_Np] += LTvyflux;
+          //printf("e=%d ux=%.15lf\n",e,gradU[base+2*p_Np]);
+      }
+    }
+    }
+
+
+  }
+}
+
+

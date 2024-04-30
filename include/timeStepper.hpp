@@ -141,6 +141,32 @@ public:
   void Run(solver_t& solver, deviceMemory<dfloat>& o_q, dfloat start, dfloat end);
 };
 
+/* Low-Storage Explicit Runge-Kutta, order 4 */
+class ssprk2: public timeStepperBase_t {
+protected:
+  int Nrk;
+  memory<dfloat> rka, rkb, rkc;
+
+  deviceMemory<dfloat> o_rhsq;
+  deviceMemory<dfloat> o_resq;
+
+  deviceMemory<dfloat> o_saveq;
+  deviceMemory<dfloat> o_q1;
+
+  kernel_t updateKernel;
+
+  virtual void Step(solver_t& solver, deviceMemory<dfloat>& o_q, dfloat time, dfloat dt);
+
+public:
+  ssprk2(dlong Nelements, dlong NhaloElements,
+         int Np, int Nfields,
+         platform_t& _platform, comm_t _comm);
+
+  void Run(solver_t& solver, deviceMemory<dfloat>& o_q, dfloat start, dfloat end);
+};
+
+
+
 /* Dormand-Prince method */
 /* Explict Runge-Kutta, order 5 with embedded order 4 and adaptive time-stepping */
 class dopri5: public timeStepperBase_t {
@@ -521,6 +547,23 @@ private:
 
 public:
   lserk4_pml(dlong Nelements, dlong NpmlElements, dlong NhaloElements,
+            int Np, int Nfields, int Npmlfields,
+            platform_t& _platform, comm_t _comm);
+};
+
+
+class ssprk2_pml: public ssprk2 {
+private:
+  dlong Npml;
+
+  deviceMemory<dfloat> o_pmlq;
+  deviceMemory<dfloat> o_rhspmlq;
+  deviceMemory<dfloat> o_respmlq;
+
+  void Step(solver_t& solver, deviceMemory<dfloat>& o_q, dfloat time, dfloat dt);
+
+public:
+  ssprk2_pml(dlong Nelements, dlong NpmlElements, dlong NhaloElements,
             int Np, int Nfields, int Npmlfields,
             platform_t& _platform, comm_t _comm);
 };

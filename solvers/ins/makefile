@@ -83,7 +83,7 @@ FPE_LIBP_LIBS=timeStepper linearSolver parAlmond mesh parAdogs ogs linAlg core
 
 #includes
 INCLUDES=-I${ELLIPTIC_DIR} \
-			${LIBP_INCLUDES} \
+			${LIBP_INCLUDES} -I $$MODULE_OPENBLAS_BASE_DIR/include\
 			-I.
 
 #defines
@@ -96,7 +96,7 @@ INS_CXXFLAGS=${LIBP_CXXFLAGS} ${DEFINES} ${INCLUDES}
 #link libraries
 LIBS=-L${ELLIPTIC_DIR} -lelliptic \
 	  -L${LIBP_LIBS_DIR} $(addprefix -l,$(FPE_LIBP_LIBS)) \
-     ${LIBP_LIBS}
+     ${LIBP_LIBS} -L $$MODULE_OPENBLAS_BASE_DIR/lib -lopenblas
 
 #link flags
 LFLAGS=${INS_CXXFLAGS} ${LIBS}
