@@ -67,56 +67,6 @@ SOFTWARE.
       }
     }
 
-    // for all face nodes of all elements
-    for(int n=0;n<p_maxNodes;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
-
-      if(n<p_NfacesNfp){
-        // check for boundary face
-        const int face = n/p_Nfp;
-        const int bc = EToB[face+p_Nfaces*e];
-        if(bc>0){
-          // load surface geofactors for this face
-          const dlong sid = p_Nsgeo*(e*p_Nfaces+face);
-          const dfloat nx = sgeo[sid+p_NXID];
-          const dfloat ny = sgeo[sid+p_NYID];
-
-          const dlong id  = e*p_Nfp*p_Nfaces + n;
-          const dlong idM = vmapM[id];
-
-          const int vidM = idM%p_Np;
-          const dlong qbaseM = e*p_Np*p_Nfields + vidM;
-
-          const dfloat hM  =U[qbaseM + 0*p_Np];
-          const dfloat qM = U[qbaseM + 1*p_Np];
-          const dfloat pM = U[qbaseM + 2*p_Np];
-
-          const dfloat uM = qM/hM;
-          const dfloat vM = pM/hM;
-
-          dfloat hP;
-          dfloat qP;
-          dfloat pP;
-
-          //get boundary value
-          SWEAVDirichletConditions2D(bc, time, x[idM], y[idM], nx, ny, hM, qM, pM, &hP, &qP, &pP);
-
-          const dfloat uP = qP/hP;
-          const dfloat vP = pP/hP;
-
-          //determine max wavespeed from boundary value
-          const dfloat U = sqrt(uP*uP+vP*vP);
-          const dfloat c = sqrt(p_grav*hP);
-
-          const dfloat UP = fabs(U+c);
-          const dfloat UM = fabs(U-c);
-
-          const dfloat Umax = (UP > UM) ? UP : UM;
-
-          s_maxSpeed[n] = (Umax > s_maxSpeed[n]) ? Umax : s_maxSpeed[n];
-        }
-      }
-    }
-
     // reduce
 #if p_maxNodes>512
     for(int n=0;n<p_maxNodes;++n;@inner(0)) {

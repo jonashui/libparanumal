@@ -27,6 +27,9 @@ SOFTWARE.
 @kernel void SWEAVViscositySmoothTri2D(const dlong Nelements,
                                  @restrict const  dlong *  vmapP,
                                  @restrict const  dfloat *  muInterp,
+                                 @restrict const  dlong *  EToN,
+                                 @restrict const  dlong *  Ncounts,
+                                 @restrict const  dlong *  Vcounts,
                                  @restrict const  dfloat *  mu,
                                  @restrict dfloat *  gradU){
 
@@ -44,15 +47,36 @@ SOFTWARE.
       s_muNeighbours[n]=mu[eP];
     }
     const dfloat muCurrent = mu[e];
-    //printf("e=%d mu=%lf ", e, muCurrent);
+
+    s_muavg[0]=0.0;
+    dlong base=Ncounts[e];
+    for(int i=0;i<Vcounts[e*3+0];++i) {
+        dlong id=base+i;
+        s_muavg[0]+=mu[EToN[id]];
+    }
+    s_muavg[0]/=(dfloat)Vcounts[e*3+0];
+
+
+    s_muavg[2]=0.0;
+    base=Ncounts[e]+Vcounts[e*3+0];
+    for(int i=0;i<Vcounts[e*3+1];++i) {
+        dlong id=base+i;
+        s_muavg[2]+=mu[EToN[id]];
+    }
+    s_muavg[2]/=(dfloat)Vcounts[e*3+1];
+
+    s_muavg[5]=0.0;
+    base=Ncounts[e]+Vcounts[e*3+0]+Vcounts[e*3+1];
+    for(int i=0;i<Vcounts[e*3+2];++i) {
+        dlong id=base+i;
+        s_muavg[5]+=mu[EToN[id]];
+    }
+    s_muavg[5]/=(dfloat)Vcounts[e*3+2];
 
     {
-    s_muavg[0]=(muCurrent+s_muNeighbours[0]+s_muNeighbours[2])/3.0;
     s_muavg[1]=(muCurrent+s_muNeighbours[0])/2.0;
-    s_muavg[2]=(muCurrent+s_muNeighbours[0]+s_muNeighbours[1])/3.0;
     s_muavg[3]=(muCurrent+s_muNeighbours[2])/2.0;
     s_muavg[4]=(muCurrent+s_muNeighbours[1])/2.0;
-    s_muavg[5]=(muCurrent+s_muNeighbours[1]+s_muNeighbours[2])/3.0;
     }
 
 
