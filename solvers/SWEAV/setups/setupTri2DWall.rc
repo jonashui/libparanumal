@@ -2,24 +2,12 @@
 2.0
 
 [DATA FILE]
-data/SWEAVAnalytic2D.h
-#data/SWEAVWall2D.h
-#data/SWEAVGuus2D.h
-#data/SWEAVCircularDam2D.h
-data/SWEAVparabolic2D.h
+data/SWEAVWall2D.h
+
 
 [MESH FILE]
-#BOX
-#../../meshes/wall.msh
-#../../meshes/wallsplit.msh
-#../../meshes/wallsplith1.msh
-#../../meshes/meshAnalytic.msh
-#../../meshes/analytich025.msh
-#../../meshes/circleh025.msh
-#../../meshes/guush05.msh
-#../../meshes/circularDamh05.msh
-#../../meshes/parabolich01.msh
-../../meshes/circle.msh
+../../meshes/wallh05.msh
+
 
 [MESH DIMENSION]
 2
@@ -40,12 +28,11 @@ data/SWEAVparabolic2D.h
 1
 
 [POLYNOMIAL DEGREE]
-4
+6
 
 #Can be COLLOCATION or CUBATURE
 [ADVECTION TYPE]
 CUBATURE
-
 
 [THREAD MODEL]
 CUDA
@@ -57,7 +44,7 @@ CUDA
 0
 
 [TIME INTEGRATOR]
-SSPRK2
+DOPRI5
 
 [CFL NUMBER]
 0.1
@@ -66,13 +53,13 @@ SSPRK2
 0
 
 [FINAL TIME]
-1e-10
+7.2
 
 [OUTPUT INTERVAL]
-1e-10
+7.2
 
 [OUTPUT TO FILE]
 TRUE
 
 [OUTPUT FILE NAME]
-SWE
+SWEWall

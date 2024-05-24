@@ -24,14 +24,14 @@ SOFTWARE.
 
 */
 
-#include "SWEAV.hpp"
+#include "SWEC.hpp"
 
-//settings for SWEAV solver
-SWEAVSettings_t::SWEAVSettings_t(comm_t _comm):
+//settings for SWEC solver
+SWECSettings_t::SWECSettings_t(comm_t _comm):
   settings_t(_comm) {
 
   newSetting("DATA FILE",
-             "data/SWEAVAnalytic2D.h",
+             "data/SWECAnalytic2D.h",
              "Boundary and Initial conditions header");
 
   newSetting("ADVECTION TYPE",
@@ -66,13 +66,13 @@ SWEAVSettings_t::SWEAVSettings_t(comm_t _comm):
              {"TRUE", "FALSE"});
 
   newSetting("OUTPUT FILE NAME",
-             "SWEAV");
+             "SWEC");
 }
 
-void SWEAVSettings_t::report() {
+void SWECSettings_t::report() {
 
   if (comm.rank()==0) {
-    std::cout << "SWEAV Settings:\n\n";
+    std::cout << "SWEC Settings:\n\n";
     reportSetting("DATA FILE");
     reportSetting("TIME INTEGRATOR");
     reportSetting("START TIME");
@@ -83,9 +83,12 @@ void SWEAVSettings_t::report() {
   }
 }
 
-void SWEAVSettings_t::parseFromFile(platformSettings_t& platformSettings,
+void SWECSettings_t::parseFromFile(platformSettings_t& platformSettings,
                                   meshSettings_t& meshSettings,
-                                  const std::string filename) {
+                                  const std::string filename,
+                                  const std::string degree,
+                                  const std::string meshfile,
+                                  const std::string idx) {
   //read all settings from file
   settings_t s(comm);
   s.readSettingsFromFile(filename);
@@ -105,4 +108,13 @@ void SWEAVSettings_t::parseFromFile(platformSettings_t& platformSettings,
     }
   }
 
+  const std::string name = "POLYNOMIAL DEGREE";
+  meshSettings.changeSetting(name, degree);
+
+  const std::string name2 = "MESH FILE";
+  meshSettings.changeSetting(name2, meshfile);
+
+  const std::string name3 = "OUTPUT FILE NAME";
+  const std::string val = "SWE"+idx;
+  changeSetting(name3, val);
 }

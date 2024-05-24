@@ -89,6 +89,9 @@ class mesh_t {
   memory<dlong> Ncounts;
   memory<dlong> Vcounts;
 
+  memory<dlong> VToE;
+  memory<dlong> counts;
+
   deviceMemory<dlong> o_EToN;
   deviceMemory<dlong> o_Ncounts;
   deviceMemory<dlong> o_Vcounts;
@@ -103,6 +106,10 @@ class mesh_t {
   deviceMemory<int> o_mapB;
 
   memory<hlong> elementInfo; //type of element
+  memory<dlong> elementInfo2; //type of element
+  memory<dlong> elementInfo3; //type of element
+  deviceMemory<dlong> o_elementInfo; //type of element
+  deviceMemory<dlong> o_elementInfo2; //type of element
 
   memory<dlong> VmapM;  // list of vertices on each face
   memory<dlong> VmapP;  // list of vertices that are paired with face vertices

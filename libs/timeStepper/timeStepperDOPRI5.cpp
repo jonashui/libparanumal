@@ -100,7 +100,7 @@ dopri5::dopri5(dlong Nelements, dlong NhaloElements,
   dtMIN = 1E-9; //minumum allowed timestep
   ATOL = 1E-6;  //absolute error tolerance
   RTOL = 1E-6;  //relative error tolerance
-  safe = 0.8;   //safety factor
+  safe = 0.4;   //safety factor
 
   //error control parameters
   beta = 0.05;

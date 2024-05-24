@@ -24,9 +24,9 @@ SOFTWARE.
 
 */
 
-#include "SWEAV.hpp"
+#include "SWEC.hpp"
 
-void SWEAV_t::Run(){
+void SWEC_t::Run(){
 
   dfloat startTime, finalTime;
   settings.getSetting("START TIME", startTime);
@@ -38,7 +38,6 @@ void SWEAV_t::Run(){
                          mesh.o_y,
                          mesh.o_z,
                          mesh.o_elementInfo,
-                         mesh.o_elementInfo2,
                          o_q);
 
   dfloat cfl=1.0;

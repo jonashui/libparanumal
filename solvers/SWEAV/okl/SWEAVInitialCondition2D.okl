@@ -29,6 +29,8 @@ SOFTWARE.
                                          @restrict const  dfloat *  x,
                                          @restrict const  dfloat *  y,
                                          @restrict const  dfloat *  z,
+                                         @restrict const  dlong *  elementInfo,
+                                         @restrict const  dlong *  elementInfo2,
                                          @restrict        dfloat *  U){
 
   for(dlong e=0;e<Nelements;++e;@outer(0)){
@@ -39,8 +41,8 @@ SOFTWARE.
       dfloat q = 0.0;
       dfloat p = 0.0;
 
-      SWEAVInitialConditions2D(time, x[id], y[id], &h, &q, &p);
-
+      SWEAVInitialConditions2D(time, x[id], y[id],elementInfo[e],elementInfo2[e], &h, &q, &p);
+      
       const dlong qbase = e*p_Np*p_Nfields + n;
       U[qbase+0*p_Np] = h;
       U[qbase+1*p_Np] = q;

@@ -24,44 +24,28 @@ SOFTWARE.
 
 */
 
-#include "SWEAV.hpp"
+@kernel void SWECInitialCondition2D(const dlong Nelements,
+                                         const dfloat time,
+                                         @restrict const  dfloat *  x,
+                                         @restrict const  dfloat *  y,
+                                         @restrict const  dfloat *  z,
+                                         @restrict const  dlong *  elementInfo,
+                                         @restrict        dfloat *  U){
 
-int main(int argc, char **argv){
+  for(dlong e=0;e<Nelements;++e;@outer(0)){
+    for(int n=0;n<p_Np;++n;@inner(0)){
+      const dlong id = e*p_Np + n;
 
-  // start up MPI
-  Comm::Init(argc, argv);
+      dfloat h = 0.0;
+      dfloat q = 0.0;
+      dfloat p = 0.0;
 
-  //LIBP_ABORT("Usage: ./SWEAVMain setupfile", argc!=2);
-
-  { /*Scope so everything is destructed before MPI_Finalize */
-    comm_t comm(Comm::World().Dup());
-
-    //create default settings
-    platformSettings_t platformSettings(comm);
-    meshSettings_t meshSettings(comm);
-    SWEAVSettings_t SWEAVSettings(comm);
-
-    //load settings from file
-    SWEAVSettings.parseFromFile(platformSettings, meshSettings,
-                              argv[1]);
-
-    // set up platform
-    platform_t platform(platformSettings);
-    
-    platformSettings.report();
-    meshSettings.report();
-    SWEAVSettings.report();
-    
-    // set up mesh
-    mesh_t mesh(platform, meshSettings, comm);
-    
-    // set up SWEAV solver
-    SWEAV_t SWEAV(platform, mesh, SWEAVSettings);
-    // run
-    SWEAV.Run();
+      SWECInitialConditions2D(time, x[id], y[id],elementInfo[e], &h, &q, &p);
+      
+      const dlong qbase = e*p_Np*p_Nfields + n;
+      U[qbase+0*p_Np] = h;
+      U[qbase+1*p_Np] = q;
+      U[qbase+2*p_Np] = p;
+    }
   }
-
-  // close down MPI
-  Comm::Finalize();
-  return LIBP_SUCCESS;
 }

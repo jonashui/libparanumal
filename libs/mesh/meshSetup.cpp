@@ -99,9 +99,9 @@ void mesh_t::Setup(platform_t& _platform, meshSettings_t& _settings,
   // compute surface geofacs
   SurfaceGeometricFactors();
   
-
   // label local/global gather elements
   GatherScatterSetup();
+
 }
 
 } //namespace libp

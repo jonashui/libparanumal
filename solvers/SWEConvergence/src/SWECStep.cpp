@@ -24,9 +24,9 @@ SOFTWARE.
 
 */
 
-#include "SWEAV.hpp"
+#include "SWEC.hpp"
 
-dfloat SWEAV_t::MaxWaveSpeed(deviceMemory<dfloat>& o_Q, const dfloat T){
+dfloat SWEC_t::MaxWaveSpeed(deviceMemory<dfloat>& o_Q, const dfloat T){
   //Note: if this is on the critical path in the future, we should pre-allocate this
   maxWaveSpeedKernel(mesh.Nelements,
                      mesh.o_vgeo,
@@ -46,7 +46,7 @@ dfloat SWEAV_t::MaxWaveSpeed(deviceMemory<dfloat>& o_Q, const dfloat T){
 }
 
 //evaluate ODE rhs = f(q,t)
-void SWEAV_t::rhsf(deviceMemory<dfloat>& o_Q, deviceMemory<dfloat>& o_RHS, const dfloat T){
+void SWEC_t::rhsf(deviceMemory<dfloat>& o_Q, deviceMemory<dfloat>& o_RHS, const dfloat T){
   
   fieldTraceHalo.ExchangeStart(o_Q, 1);
 

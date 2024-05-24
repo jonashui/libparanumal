@@ -25,7 +25,7 @@ SOFTWARE.
 */
 
 // batch process elements
-/*@kernel void SWEAVViscosityTri2D(const dlong Nelements,
+/*@kernel void SWECViscosityTri2DCurv(const dlong Nelements,
                                     @restrict const  dfloat *  sgeo,
                                     @restrict const  dfloat *  sgeoCurv,
                                     @restrict const  dlong *    mapCurv,
@@ -51,6 +51,7 @@ SOFTWARE.
     @shared dfloat s_sx[p_Nfaces];
     @shared dfloat s_sy[p_Nfaces];
     
+    if(mapCurv[e] < 0) {
     for(int n=0;n<p_NfacesNfp;++n;@inner(0)){
       const int face = n/p_Nfp;
       const dlong id  = e*p_Nfp*p_Nfaces + n;
@@ -117,11 +118,11 @@ SOFTWARE.
       // find face that owns this node
       if(n%p_Nfp > 0) {
         const int face = n/p_Nfp;
-        //const dlong x = (n%p_Nfp);
-        s_sxy[face]-=logf(s_hhat[n])*logf(n%p_Nfp);
-        s_sxx[face]+=logf(n%p_Nfp)*logf(n%p_Nfp);
-        s_sx[face]-=logf(n%p_Nfp);
-        s_sy[face]+=logf(s_hhat[n]);
+        const dfloat x = (dfloat)(n%p_Nfp);
+        s_sxy[face]-=log(s_hhat[n])*log(x);
+        s_sxx[face]+=log(x)*log(x);
+        s_sx[face]-=log(x);
+        s_sy[face]+=log(s_hhat[n]);
       }
     }
     for(int n=0;n<p_NfacesNfp;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
@@ -130,7 +131,8 @@ SOFTWARE.
         }
     }
     
-    const dfloat tau = min(s_tau[0],min(s_tau[1],s_tau[2]));
+
+    dfloat tau = min(s_tau[0],min(s_tau[1],s_tau[2]));
     dfloat mutemp = 0.0;
     if(tau < 1) {
       mutemp=muMax;
@@ -141,6 +143,99 @@ SOFTWARE.
     }
     mu[e] = mutemp;
     //printf("e=%d, mu=%lf \n", e, mutemp);
+    } else {
+    const dlong eC = mapCurv[e];
+    for(int n=0;n<p_NfacesNfp;++n;@inner(0)){
+      const int face = n/p_Nfp;
+      const dlong id  = e*p_Nfp*p_Nfaces + n;
+      const dlong idM = vmapM[id];
+      const dlong eM = e;
+      const int vidM = idM%p_Np;
+
+      const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+
+      s_h[face][n%p_Nfp] = U[qbaseM + 0*p_Np];
+      s_l2[face]=0.0;
+
+      s_sxy[face]=0.0;
+      s_sxx[face]=0.0;
+      s_sx[face]=0.0;
+      s_sy[face]=0.0;
+    }
+    
+    for(int n=0;n<p_NfacesNfp;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+      // find face that owns this node
+      const int face = n/p_Nfp;
+      const dlong sid    = p_Nsgeo*(p_Nfaces*p_Nfp*eC + n);
+      const dfloat sJ   = sgeoCurv[sid+p_SJID];
+      //printf("e=%d sJ=%lf\n", e, sJ);
+
+      dfloat hhat=0.0; 
+      #pragma unroll p_Nfp
+      for(int m=0;m<p_Nfp;++m){
+          const dlong vbase = p_Nfp*p_Nfp*face;
+          const dfloat Vnm = invV1Ds[vbase+n%p_Nfp+m*p_Nfp];
+          //printf("f=%d Vnm=%lf\n", face, Vnm);
+          hhat+=Vnm*s_h[face][m];
+      }
+      s_hhat[n]=hhat;
+
+
+      dfloat l2=0.0; 
+      #pragma unroll p_Nfp
+      for(int m=0;m<p_Nfp;++m){
+          const dlong  Mbase = p_Nfp*p_Nfp*face;
+          const dfloat Mnm = sJ*MM1Ds[Mbase+n%p_Nfp+m*p_Nfp];
+          l2+=Mnm*s_h[face][m];
+      }
+      s_l2[face]+=s_h[face][n%p_Nfp]*l2;
+    }
+    
+    for(int n=0;n<p_NfacesNfp;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+      const int face = n/p_Nfp;
+      s_hhat[n]=sqrt(s_hhat[n]*s_hhat[n]+perfectDecay2[n%p_Nfp]*s_l2[face]);
+    }
+
+    for(int n=0;n<p_NfacesNfp;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+        //const int face = (p_NfacesNfp-n)/p_Nfp;
+        dlong id;
+        if((p_NfacesNfp-n)%p_Nfp == (p_Nfp-1)) {
+          id = p_NfacesNfp-n-1;
+        } else {
+          id=p_NfacesNfp-n+1;
+        }
+        s_hhat[p_NfacesNfp-n]=max(s_hhat[p_NfacesNfp-n],s_hhat[id]);
+    }
+
+
+    
+    for(int n=0;n<p_NfacesNfp;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+      // find face that owns this node
+      if(n%p_Nfp > 0) {
+        const int face = n/p_Nfp;
+        const dfloat x = (dfloat)(n%p_Nfp);
+        s_sxy[face]-=log(s_hhat[n])*log(x);
+        s_sxx[face]+=log(x)*log(x);
+        s_sx[face]-=log(x);
+        s_sy[face]+=log(s_hhat[n]);
+      }
+    }
+    for(int n=0;n<p_NfacesNfp;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+        if(n < 3) {
+          s_tau[n]=(p_N*s_sxy[n]-s_sx[n]*s_sy[n])/(p_N*s_sxx[n]-s_sx[n]*s_sx[n]);
+        }
+    }
+    dfloat tau = min(s_tau[0],min(s_tau[1],s_tau[2]));
+    dfloat mutemp = 0.0;
+    if(tau < 1) {
+      mutemp=muMax;
+    } else if ((1 <= tau) && (tau <= 3)) {
+      mutemp=1.0-(tau-1.0)/2.0;
+    } else {
+      mutemp=0.0;
+    }
+    mu[e] = mutemp;
+    }
   }
 }
 */
@@ -148,7 +243,7 @@ SOFTWARE.
 
 
 
-@kernel void SWEAVViscosityTri2D(const dlong Nelements,
+@kernel void SWECViscosityTri2DCurv(const dlong Nelements,
                                     @restrict const  dfloat *  sgeo,
                                     @restrict const  dfloat *  sgeoCurv,
                                     @restrict const  dlong *    mapCurv,
@@ -162,6 +257,7 @@ SOFTWARE.
                                     @restrict dfloat *  mu){
     
     for(dlong e=0;e<Nelements;++e;@outer(0)){
+        // printf("-----------------------------------------\n Element %d\n",e);
         @shared dfloat s_h[p_Nfaces][p_Nfp];
         @shared dfloat s_hhat[p_Nfaces][p_Nfp-1];
         @shared dfloat s_L2temp[p_Nfaces][p_Nfp];
@@ -178,6 +274,7 @@ SOFTWARE.
         @shared dfloat s_sxy[p_Nfaces];
         @shared dfloat s_sxx[p_Nfaces];
         // @shared dfloat s_Mh[p_Nfp];
+        if(mapCurv[e] < 0) {
         for(int face=0;face<p_Nfaces;++face;@inner(1)){
             for(int n=0;n<p_Nfp;++n;@inner(0)){
                 // indices of negative and positive traces of face node
@@ -304,7 +401,139 @@ SOFTWARE.
             }
            }
         }
-   
-    }
+        
+        //printf("mu[%d] = %lf, \n",e,muTemp);
+    } else {
+      const dlong eC = mapCurv[e];
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+            for(int n=0;n<p_Nfp;++n;@inner(0)){
+                // indices of negative and positive traces of face node
+                const dlong id  = e*p_Nfp*p_Nfaces + face*p_Nfp+n;
+                const dlong idM = vmapM[id];
 
+                // load traces
+                const dlong eM = e;
+                const int vidM = idM%p_Np;
+
+                const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+
+                s_h[face][n] = U[qbaseM + 0*p_Np];
+            }
+        }
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+            for(int n=0;n<p_Nfp;++n;@inner(0)){
+                if(n!=0){
+                    s_hhat[face][n-1] = 0.0;
+                    #pragma unroll p_Nfp
+                        for (int m = 0; m < p_Nfp; m++){
+                            const dlong V1Dbase = p_Nfp*p_Nfp*face;
+                            const dfloat V1Dmn = invV1Ds[V1Dbase + m*p_Nfp+n];
+                            s_hhat[face][n-1] += V1Dmn*s_h[face][m];
+                        }
+                }
+            }
+            
+        }
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+            s_L2[face] = 0.0;
+            for(int n=0;n<p_Nfp;++n;@inner(0)){
+                    const dlong sid   = p_Nsgeo*(p_Nfaces*p_Nfp*eC + face*p_Nfp+n);
+                    const dfloat sJ   = sgeoCurv[sid+p_SJID];
+                    //printf("e=%d sJ=%lf \n",e,sJ);
+                    s_L2temp[face][n]=0.0;
+                    //dfloat Mh = 0.0;
+                    //dfloat l2 = 0.0;
+                    #pragma unroll p_Nfp
+                        for (int m = 0; m < p_Nfp; m++){
+                            const dlong MMbase = p_Nfp*p_Nfp*face;
+                            const dfloat MMmn = sJ*MM1Ds[MMbase + m*p_Nfp+n];
+                            s_L2temp[face][n] += MMmn*s_h[face][m];
+                        }
+                    // s_Mh[face][n] = Mh;
+                }
+        }
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+           for(int n=0;n<p_Nfp;++n;@inner(0)){
+              if(n == 0) {
+              #pragma unroll p_Nfp
+              for (int m = 0; m < p_Nfp; m++)
+                s_L2[face] += s_L2temp[face][m]*s_h[face][m];
+              }
+           }
+        }
+            
+
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+            for(int n=0;n<p_Nfp;++n;@inner(0)){
+                if(n<p_Nfp-1){
+                    s_hhat[face][n]=sqrt(s_hhat[face][n]*s_hhat[face][n]+perfectDecay2[n+1]*s_L2[face]);
+                }
+            }
+        }
+
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+            s_hhat[face][p_Nfp-2] = max(s_hhat[face][p_Nfp-2],s_hhat[face][p_Nfp-3]);
+            for(int n=0;n<p_Nfp;++n;@inner(0)) {
+              if(n==0) {
+                #pragma unroll p_Nfp-2
+                for(int i=0;i<p_Nfp-2;++i){
+                    s_hhat[face][p_Nfp-3-i] = max(s_hhat[face][p_Nfp-3-i],s_hhat[face][p_Nfp-2-i]);
+                }
+              }
+            }
+        }
+
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+            s_sx[face]=0.0;
+            s_sy[face]=0.0;
+            s_sxx[face]=0.0;
+            s_sxy[face]=0.0;
+            for(int n=0;n<p_Nfp;++n;@inner(0)){
+                if(n<p_Nfp-1){
+                    s_sxtemp[face][n]  =-log((dfloat)n+1.0);
+                    s_sytemp[face][n]  =log(s_hhat[face][n]);
+                    s_sxxtemp[face][n] =log((dfloat)n+1.0)*log((dfloat)n+1.0);
+                    s_sxytemp[face][n] =-log((dfloat)n+1.0)*log(s_hhat[face][n]);
+                }
+            }
+        }
+
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+           for(int n=0;n<p_Nfp;++n;@inner(0)){
+              if(n == 0) {
+              #pragma unroll p_Nfp-1
+              for (int m = 0; m < p_Nfp-1; m++) {
+                s_sx[face] += s_sxtemp[face][m];
+                s_sy[face] += s_sytemp[face][m];
+                s_sxx[face] += s_sxxtemp[face][m];
+                s_sxy[face] += s_sxytemp[face][m];
+              }
+           }
+           }
+          s_tau[face] = (p_N*s_sxy[face]-s_sx[face]*s_sy[face])/(p_N*s_sxx[face]-s_sx[face]*s_sx[face]);
+        }
+
+        for(int face=0;face<p_Nfaces;++face;@inner(1)){
+           for(int n=0;n<p_Nfp;++n;@inner(0)){
+            if((face <1) && (n < 1)) {
+              dfloat tau = min(s_tau[0],min(s_tau[1],s_tau[2]));
+              dfloat muMax = maxSpeed[e]*hs[e]/p_N;
+              dfloat muTemp;
+              if (tau<1){
+                  muTemp = muMax;
+              }
+              else if(tau>=1 && tau<=3){
+                  muTemp = muMax*(1.0-(tau-1.0)/2.0);
+              }
+              else{
+                  muTemp = 0.0;
+              }
+              mu[e] = muTemp;
+            }
+           }
+        }
+        
+
+    }
+    }
 }

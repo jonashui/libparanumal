@@ -26,7 +26,7 @@ SOFTWARE.
 
 // Boundary conditions
 /* wall 1, outflow 2 */
-#define SWEAVDirichletConditions2D(bc, t, x, y, nx, ny, hM, qM, pM, hB, qB, pB) \
+#define SWECDirichletConditions2D(bc, t, x, y, nx, ny, hM, qM, pM, hB, qB, pB) \
 {                                             \
   if(bc==1){                                  \
     *(hB) = -hM+2.0*2.0;                      \
@@ -44,7 +44,7 @@ SOFTWARE.
 }
 
 
-#define SWEAVDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dudxM, dudyM, dvdxM, dvdyM, dhdxB, dhdyB, dudxB, dudyB, dvdxB, dvdyB) \
+#define SWECDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dudxM, dudyM, dvdxM, dvdyM, dhdxB, dhdyB, dudxB, dudyB, dvdxB, dvdyB) \
 {                                       \
   if(bc==3 || bc == 5){                            \
     *dhdxB = dhdxM - 2*nx*(nx*dhdxM + ny*dhdyM);   \
@@ -64,7 +64,7 @@ SOFTWARE.
 }
 // Initial conditions
 
-#define SWEAVInitialConditions2D(t, x, y, elementInfo, elementInfo2, h, q, p) \
+#define SWECInitialConditions2D(t, x, y,elementInfo, h, q, p) \
 {                                   \
     *(h) =2.0;                  \
     *(q)=3.0*sqrt(2.0*p_grav);                 \
@@ -74,7 +74,7 @@ SOFTWARE.
 // *(q)=3.0*sqrt(p_grav);
 
 /*
-#define SWEAVInitialConditions2D(t, x, y,elementInfo, h, q, p) \
+#define SWECInitialConditions2D(t, x, y,elementInfo, h, q, p) \
 {                                   \
     *(h) = 1.0;                  \
     *(p)=0.0;                          \
@@ -85,10 +85,3 @@ SOFTWARE.
     }                                               \
 }
 */
-
-#define SWEAVSourceTerms2D(xl, yl, t, h, q, p, s1, s2, s3) \
-{                                       \
-  *s1=0.0; \
-  *s2=0.0; \
-  *s3=0.0; \
-}

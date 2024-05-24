@@ -32,6 +32,8 @@ void mesh_t::PhysicalNodesTri2D(){
 
   x.malloc(Nelements*Np);
   y.malloc(Nelements*Np);
+  elementInfo2.malloc(Nelements);
+  elementInfo3.malloc(Nelements);
 
   #pragma omp parallel for
   for(dlong e=0;e<Nelements;++e){ /* for each element */
@@ -45,6 +47,20 @@ void mesh_t::PhysicalNodesTri2D(){
     dfloat ye1 = EY[id+0]; /* y-coordinates of vertices */
     dfloat ye2 = EY[id+1];
     dfloat ye3 = EY[id+2];
+
+    dfloat xavg=(xe1+xe2+xe3)/3.0;
+    dfloat yavg=(ye1+ye2+ye3)/3.0;
+    if( xavg <= 105) {
+      elementInfo2[e]=1;
+    } else {
+      elementInfo2[e]=0;
+    }
+
+    if( xavg*xavg+yavg*yavg <= 2.5*2.5) {
+      elementInfo3[e]=1;
+    } else {
+      elementInfo3[e]=0;
+    }
 
     for(int n=0;n<Np;++n){ /* for each node */
 
@@ -60,6 +76,8 @@ void mesh_t::PhysicalNodesTri2D(){
 
   o_x = platform.malloc<dfloat>(x);
   o_y = platform.malloc<dfloat>(y);
+  o_elementInfo=platform.malloc<dlong>(elementInfo2);
+  o_elementInfo2=platform.malloc<dlong>(elementInfo3);
 }
 
 } //namespace libp

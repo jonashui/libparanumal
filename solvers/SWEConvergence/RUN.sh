@@ -1,9 +1,9 @@
 #!/bin/sh
 # embedded options to bsub - start with #BSUB
 # -- our name ---
-#BSUB -J SWERun
+#BSUB -J SWEtest
 # -- choose queue --
-#BSUB -q gpua100
+#BSUB -q hpc
 # -- Notify me by email when execution begins --
 #BSUB -B
 # -- Notify me by email when execution ends   --
@@ -17,19 +17,17 @@
 # -- Error File --
 #BSUB -e aError_%J.txt
 
-#BSUB -gpu "num=1:mode=exclusive_process"
-##BSUB -gpu "num=1"
-
 #BSUB -n 4
-#BSUB -R "rusage[mem=5GB]"
+#BSUB -R "rusage[mem=15GB]"
 #BSUB -R "span[block=1]"
-#BSUB -W 5:00
+#BSUB -W 1:00
+#BSUB -R "select[model == XeonGold6142]"
 
 # Load modules
 module purge
-module load mpi/4.0.5-gcc-8.4.0
+module load mpi/3.1.3-gcc-8.2.0
+module load gcc/12.2.0-binutils-2.39
 module load openblas
-module load cuda/12.0
 
 # Needed environment variables
 #export OCCA_DIR=~/libparanumal/occa
@@ -43,16 +41,7 @@ module load cuda/12.0
 
 # Build project
 #make realclean
-#make clean
-#make -j
+make clean
+make -j
 #./advectionMain setups/setupTri2D.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2D.rc
-
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DWall.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DParabolic.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam1.rc
-mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam2.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam3.rc
-
-
-#mpiexec ./SWEAVMain setups/setupTri2D.rc
+mpiexec -np 1 --map-by slot:PE=4 ./SWECMain setups/setupTri2D.rc

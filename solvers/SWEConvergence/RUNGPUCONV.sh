@@ -1,13 +1,13 @@
 #!/bin/sh
 # embedded options to bsub - start with #BSUB
 # -- our name ---
-#BSUB -J SWERun
+#BSUB -J SWEConv
 # -- choose queue --
 #BSUB -q gpua100
 # -- Notify me by email when execution begins --
-#BSUB -B
+##BSUB -B
 # -- Notify me by email when execution ends   --
-#BSUB -N
+##BSUB -N
 # -- email address -- 
 # please uncomment the following line and put in your e-mail address,
 # if you want to receive e-mail notifications on a non-default address
@@ -17,13 +17,13 @@
 # -- Error File --
 #BSUB -e aError_%J.txt
 
-#BSUB -gpu "num=1:mode=exclusive_process"
-##BSUB -gpu "num=1"
+##BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -gpu "num=1"
 
 #BSUB -n 4
 #BSUB -R "rusage[mem=5GB]"
 #BSUB -R "span[block=1]"
-#BSUB -W 5:00
+#BSUB -W 1:00
 
 # Load modules
 module purge
@@ -45,14 +45,16 @@ module load cuda/12.0
 #make realclean
 #make clean
 #make -j
-#./advectionMain setups/setupTri2D.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2D.rc
-
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DWall.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DParabolic.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam1.rc
-mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam2.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam3.rc
 
 
-#mpiexec ./SWEAVMain setups/setupTri2D.rc
+NS=$(seq 4 1 9)
+
+idx=1
+for N in $NS
+do 
+    for M in ../../meshes/circleh1.msh ../../meshes/circleh05.msh ../../meshes/circleh025.msh ../../meshes/circleh0125.msh ../../meshes/circleh00625.msh ../../meshes/circleh003125.msh;
+    do
+        mpiexec -np 1 --map-by slot:PE=4 ./SWECMain setups/setupTri2D.rc $N $M $idx
+        ((idx++))
+    done
+done

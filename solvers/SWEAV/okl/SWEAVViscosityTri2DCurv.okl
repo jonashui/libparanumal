@@ -392,7 +392,7 @@ SOFTWARE.
                   muTemp = muMax;
               }
               else if(tau>=1 && tau<=3){
-                  muTemp = 1.0-(tau-1.0)/2.0;
+                  muTemp = muMax*(1.0-(tau-1.0)/2.0);
               }
               else{
                   muTemp = 0.0;
@@ -523,7 +523,7 @@ SOFTWARE.
                   muTemp = muMax;
               }
               else if(tau>=1 && tau<=3){
-                  muTemp = 1.0-(tau-1.0)/2.0;
+                  muTemp = muMax*(1.0-(tau-1.0)/2.0);
               }
               else{
                   muTemp = 0.0;

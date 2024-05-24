@@ -24,14 +24,14 @@ SOFTWARE.
 
 */
 
-#include "SWEAV.hpp"
+#include "SWEC.hpp"
 
 int main(int argc, char **argv){
 
   // start up MPI
   Comm::Init(argc, argv);
 
-  //LIBP_ABORT("Usage: ./SWEAVMain setupfile", argc!=2);
+  //LIBP_ABORT("Usage: ./SWECMain setupfile", argc!=2);
 
   { /*Scope so everything is destructed before MPI_Finalize */
     comm_t comm(Comm::World().Dup());
@@ -39,26 +39,26 @@ int main(int argc, char **argv){
     //create default settings
     platformSettings_t platformSettings(comm);
     meshSettings_t meshSettings(comm);
-    SWEAVSettings_t SWEAVSettings(comm);
+    SWECSettings_t SWECSettings(comm);
 
     //load settings from file
-    SWEAVSettings.parseFromFile(platformSettings, meshSettings,
-                              argv[1]);
+    SWECSettings.parseFromFile(platformSettings, meshSettings,
+                              argv[1],argv[2],argv[3],argv[4]);
 
     // set up platform
     platform_t platform(platformSettings);
     
     platformSettings.report();
     meshSettings.report();
-    SWEAVSettings.report();
+    SWECSettings.report();
     
     // set up mesh
     mesh_t mesh(platform, meshSettings, comm);
     
-    // set up SWEAV solver
-    SWEAV_t SWEAV(platform, mesh, SWEAVSettings);
+    // set up SWEC solver
+    SWEC_t SWEC(platform, mesh, SWECSettings);
     // run
-    SWEAV.Run();
+    SWEC.Run();
   }
 
   // close down MPI

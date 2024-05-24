@@ -28,57 +28,57 @@ SOFTWARE.
                                  @restrict const  dlong *  vmapP,
                                  @restrict const  dfloat *  muInterp,
                                  @restrict const  dlong *  EToN,
-                                 @restrict const  dlong *  Ncounts,
                                  @restrict const  dlong *  Vcounts,
                                  @restrict const  dfloat *  mu,
                                  @restrict dfloat *  gradU){
 
   // for all elements
   for(dlong e=0;e<Nelements;e++;@outer(0)){
-    dfloat s_muavg[p_NpSmooth];
-    dfloat s_muNeighbours[p_Nfaces];
+    @shared dfloat s_muavg[p_NpSmooth];
+    @shared dfloat s_muNeighbours[p_Nfaces];
 
-    #pragma unroll p_Nfaces
-    for(int n=0;n<p_Nfaces;++n) {
-      const dlong id  = e*p_Nfp*p_Nfaces + n*p_Nfp;
-      const dlong idP = vmapP[id];
-      const dlong eP = idP/p_Np;
-
-      s_muNeighbours[n]=mu[eP];
+    for(int n=0;n<p_Np;++n;@inner(0)) {
+      if(n==0) {
+        #pragma unroll p_Nfaces
+        for(int i=0;i<p_Nfaces;++i) {
+          const dlong id  = e*p_Nfp*p_Nfaces + i*p_Nfp;
+          const dlong idP = vmapP[id];
+          const dlong eP = idP/p_Np;
+          s_muNeighbours[i]=mu[eP];
+        }
+          const dfloat muCurrent = mu[e];
+          s_muavg[1]=(muCurrent+s_muNeighbours[0])/2.0;
+          s_muavg[3]=(muCurrent+s_muNeighbours[2])/2.0;
+          s_muavg[4]=(muCurrent+s_muNeighbours[1])/2.0;
     }
-    const dfloat muCurrent = mu[e];
-
-    s_muavg[0]=0.0;
-    dlong base=Ncounts[e];
-    for(int i=0;i<Vcounts[e*3+0];++i) {
+    if(n==1) {
+      s_muavg[0]=0.0;
+      dlong base=10*3*e;
+      for(int i=0;i<Vcounts[e*3+0];++i) {
         dlong id=base+i;
         s_muavg[0]+=mu[EToN[id]];
+      }
+      s_muavg[0]/=(dfloat)Vcounts[e*3+0];
     }
-    s_muavg[0]/=(dfloat)Vcounts[e*3+0];
-
-
-    s_muavg[2]=0.0;
-    base=Ncounts[e]+Vcounts[e*3+0];
-    for(int i=0;i<Vcounts[e*3+1];++i) {
-        dlong id=base+i;
-        s_muavg[2]+=mu[EToN[id]];
+    if(n==2) {
+      s_muavg[2]=0.0;
+      dlong base=10*3*e+10;
+      for(int i=0;i<Vcounts[e*3+1];++i) {
+          dlong id=base+i;
+          s_muavg[2]+=mu[EToN[id]];
+      }
+      s_muavg[2]/=(dfloat)Vcounts[e*3+1];
     }
-    s_muavg[2]/=(dfloat)Vcounts[e*3+1];
-
-    s_muavg[5]=0.0;
-    base=Ncounts[e]+Vcounts[e*3+0]+Vcounts[e*3+1];
-    for(int i=0;i<Vcounts[e*3+2];++i) {
-        dlong id=base+i;
-        s_muavg[5]+=mu[EToN[id]];
+    if(n==3) {
+      s_muavg[5]=0.0;
+      dlong base=10*3*e+20;
+      for(int i=0;i<Vcounts[e*3+2];++i) {
+          dlong id=base+i;
+          s_muavg[5]+=mu[EToN[id]];
+      }
+      s_muavg[5]/=(dfloat)Vcounts[e*3+2];
     }
-    s_muavg[5]/=(dfloat)Vcounts[e*3+2];
-
-    {
-    s_muavg[1]=(muCurrent+s_muNeighbours[0])/2.0;
-    s_muavg[3]=(muCurrent+s_muNeighbours[2])/2.0;
-    s_muavg[4]=(muCurrent+s_muNeighbours[1])/2.0;
     }
-
 
     for(int n=0;n<p_Np;++n;@inner(0)){
         dfloat mures = 0.0;
@@ -87,10 +87,15 @@ SOFTWARE.
             const dfloat munm=muInterp[n+m*p_Np];
             mures += munm*s_muavg[m];
         }
+        
+        /*
+        printf("%.15lf\n",mures);
+        */
 
         const dlong sbase = e*p_Ngrads*p_Np + n;
         gradU[sbase + 0*p_Np]*=mures;
         gradU[sbase + 1*p_Np]*=mures;
+        //mures+=0.01879255172;
         gradU[sbase + 2*p_Np]*=mures;
         gradU[sbase + 3*p_Np]*=mures;
         gradU[sbase + 4*p_Np]*=mures;

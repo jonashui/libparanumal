@@ -24,44 +24,32 @@ SOFTWARE.
 
 */
 
-#include "SWEAV.hpp"
+#include "SWEC.hpp"
 
-int main(int argc, char **argv){
+void SWEC_t::Report(dfloat time, int tstep){
 
-  // start up MPI
-  Comm::Init(argc, argv);
+  static int frame=0;
 
-  //LIBP_ABORT("Usage: ./SWEAVMain setupfile", argc!=2);
+  //compute q.M*q
+  mesh.MassMatrixApply(o_q, o_Mq);
 
-  { /*Scope so everything is destructed before MPI_Finalize */
-    comm_t comm(Comm::World().Dup());
+  dlong Nentries = mesh.Nelements*mesh.Np*Nfields;
+  dfloat norm2 = sqrt(platform.linAlg().innerProd(Nentries, o_q, o_Mq, mesh.comm));
 
-    //create default settings
-    platformSettings_t platformSettings(comm);
-    meshSettings_t meshSettings(comm);
-    SWEAVSettings_t SWEAVSettings(comm);
+  if(mesh.rank==0)
+    printf("%5.2f (%d), %5.2f (time, timestep, norm)\n", time, tstep, norm2);
 
-    //load settings from file
-    SWEAVSettings.parseFromFile(platformSettings, meshSettings,
-                              argv[1]);
+  if (settings.compareSetting("OUTPUT TO FILE","TRUE")) {
 
-    // set up platform
-    platform_t platform(platformSettings);
-    
-    platformSettings.report();
-    meshSettings.report();
-    SWEAVSettings.report();
-    
-    // set up mesh
-    mesh_t mesh(platform, meshSettings, comm);
-    
-    // set up SWEAV solver
-    SWEAV_t SWEAV(platform, mesh, SWEAVSettings);
-    // run
-    SWEAV.Run();
+    // copy data back to host
+    o_q.copyTo(q);
+
+    // output field files
+    std::string name;
+    settings.getSetting("OUTPUT FILE NAME", name);
+    char fname[BUFSIZ];
+    sprintf(fname, "%s_%04d_%04d.vtu", name.c_str(), mesh.rank, frame++);
+
+    PlotFields(q, std::string(fname));
   }
-
-  // close down MPI
-  Comm::Finalize();
-  return LIBP_SUCCESS;
 }

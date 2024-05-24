@@ -24,7 +24,7 @@ SOFTWARE.
 */
 
 
-@kernel void SWEAVCubatureVolumeTri2D(const dlong Nelements,
+@kernel void SWECCubatureVolumeTri2D(const dlong Nelements,
                                     @restrict const  dfloat *  cubvgeo,
                                     @restrict const  dfloat *  cubvgeoCurv,
                                     @restrict const  dlong *   mapCurv,
@@ -147,17 +147,39 @@ SOFTWARE.
       const dfloat rhsU1 = drdx*df1dr + dsdx*df1ds + drdy*dg1dr + dsdy*dg1ds;
       const dfloat rhsU2 = drdx*df2dr + dsdx*df2ds + drdy*dg2dr + dsdy*dg2ds;
 
-      dfloat h=s_U[0][n];
-      dfloat q=s_U[1][n];
-      dfloat p=s_U[2][n];
       const dlong  idx = e*p_Np + n;
       const dfloat xl = x[idx]; const dfloat yl = y[idx];
-
       dfloat s1,s2,s3;
-      SWEAVSourceTerms2D(xl, yl, t, h, q, p, &s1, &s2, &s3);
-      
-      const dlong base = e*p_Np*p_Nfields + n;
+      SWECSourceTerms2D(xl, yl, t, &s1, &s2, &s3);
 
+      /*
+      const dfloat s1=-sin(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)+cos(-xl+t)+cos(-yl+t)+2*cos(-xl+t)*cos(-yl+t);
+      const dfloat s2=-cos(-xl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*(sin(-xl+t)*sin(-xl+t)*sin(-xl+t))*cos(-yl+t)-2/(cos(-xl+t)*cos(-yl+t)+2)*sin(-xl+t)*cos(-xl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2)*sin(-xl+t)*cos(-yl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-yl+t)*sin(-xl+t)*cos(-xl+t)-1/(cos(-xl+t)*cos(-yl+t)+2)*cos(-yl+t)*sin(-xl+t)-sin(-xl+t);
+      const dfloat s3=-cos(-yl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)-1/(cos(-xl+t)*cos(-yl+t)+2)*sin(-yl+t)*cos(-xl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)-2/(cos(-xl+t)*cos(-yl+t)+2)*sin(-yl+t)*cos(-yl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2)*sin(-yl+t)*cos(-xl+t)-sin(-yl+t);
+      */
+
+      /*
+      const dfloat s1 = -sin(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)+cos(-xl+t)+cos(-yl+t)+2.0*cos(-xl+t)*cos(-yl+t);
+      const dfloat s2 = -cos(-xl+t)-1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)-2.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-xl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)-1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)-1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)-sin(-xl+t)*cos(-yl+t)*(cos(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+sin(-xl+t)*sin(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-yl+t))-(cos(-xl+t)*cos(-yl+t)+2.0)*(sin(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-3.0*cos(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*cos(-yl+t)-2.0*sin(-xl+t)*sin(-xl+t)*sin(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-yl+t)*cos(-yl+t))+1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)*cos(-xl+t)+1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)*cos(-xl+t);
+      const dfloat s3 = -cos(-yl+t)-sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))-sin(-yl+t)*cos(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-sin(-yl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))-2.0*sin(-yl+t)*cos(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+p_grav*(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-yl+t)*cos(-xl+t)+1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)*cos(-yl+t)+1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-yl+t)*cos(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)*(cos(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+sin(-yl+t)*sin(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-xl+t))-(cos(-xl+t)*cos(-yl+t)+2.0)*(sin(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-3.0*cos(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-yl+t)*cos(-xl+t)-2.0*sin(-yl+t)*sin(-yl+t)*sin(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-xl+t)*cos(-xl+t));
+      */
+
+      /*
+      const dfloat s1=-sin(t-xl)*cos(t-yl)-cos(t-xl)*sin(t-yl)+cos(t-xl)+cos(t-yl);
+      const dfloat s2=-cos(-xl+t)-sin(-xl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)/ ((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2) ) 
+               -2*sin(-xl + t)*cos(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2) 
+               +p_grav*(cos(-xl + t)*cos(-yl + t) + 2)*sin(-xl + t)*cos(-yl + t) 
+               -sin(-yl + t)*sin(-yl + t)*sin(-xl + t)*cos(-xl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))
+               -cos(-yl + t)*sin(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2);
+      const dfloat s3=-cos(-yl + t) - sin(-yl + t)*sin(-xl + t)*sin(-xl + t)*cos(-yl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))
+              - sin(-yl + t)*cos(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2)
+              - sin(-yl + t)*sin(-yl + t)*sin(-yl + t)*cos(-xl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))
+              - 2*sin(-yl + t)*cos(-yl + t)/(cos(-xl + t)*cos(-yl + t) + 2)
+              + p_grav*(cos(-xl + t)*cos(-yl + t) + 2)*cos(-xl + t)*sin(-yl + t);
+      */
+
+      const dlong base = e*p_Np*p_Nfields + n;
+      
       // move to rhs
       rhsU[base+0*p_Np] = rhsU0+s1;
       rhsU[base+1*p_Np] = rhsU1+s2;

@@ -26,7 +26,7 @@ SOFTWARE.
 
 // Boundary conditions
 /* wall 1, outflow 2.0 */
-#define SWEAVDirichletConditions2D(bc, t, x, y, nx, ny, hM, qM, pM, hB, qB, pB) \
+#define SWECDirichletConditions2D(bc, t, x, y, nx, ny, hM, qM, pM, hB, qB, pB) \
 {                                       \
   if(bc==5){                            \
     *(hB) = cos(-t + x)*cos(-t + y) + 2.0; \
@@ -40,7 +40,7 @@ SOFTWARE.
 }
 
 /*
-#define SWEAVDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dqdxM, dqdyM, dpdxM, dpdyM, dhdxB, dhdyB, dqdxB, dqdyB, dpdxB, dpdyB) \
+#define SWECDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dqdxM, dqdyM, dpdxM, dpdyM, dhdxB, dhdyB, dqdxB, dqdyB, dpdxB, dpdyB) \
 {                                       \
   if(bc==1){                            \
     *dhdxB = sin(-x + t)*cos(-y + t);   \
@@ -57,15 +57,11 @@ SOFTWARE.
     *dpdxB = 0.0;                       \
     *dpdyB = cos(-y + t);               \
   }                                     \
-}*/
-
-#define SWEAVDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dqdxM, dqdyM, dpdxM, dpdyM, dhdxB, dhdyB, dqdxB, dqdyB, dpdxB, dpdyB) \
-{                                       \
-  \
 }
+*/
 
 /*
-#define SWEAVDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dudxM, dudyM, dvdxM, dvdyM, dhdxB, dhdyB, dudxB, dudyB, dvdxB, dvdyB) \
+#define SWECDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dudxM, dudyM, dvdxM, dvdyM, dhdxB, dhdyB, dudxB, dudyB, dvdxB, dvdyB) \
 {                                                                                                              \
   if(bc==1){                                                                                                   \
     *dhdxB = sin(-x + t)*cos(-y + t);                                                                          \
@@ -82,20 +78,26 @@ SOFTWARE.
     *dvdxB = sin(-y + t)*sin(-x + t)*cos(-y + t)/((cos(-x + t)*cos(-y + t) + 2.0)*(cos(-x + t)*cos(-y + t) + 2.0));\
     *dvdyB = (cos(-x + t) + 2.0*cos(-y + t))/((cos(-x + t)*cos(-y + t) + 2.0)*(cos(-x + t)*cos(-y + t) + 2.0));        \
   }                                                                                                            \
-}
-*/
+} */
 
-/*
+
+
+#define SWECDerivativeConditions2D(bc, t, x, y, nx, ny, dhdxM, dhdyM, dudxM, dudyM, dvdxM, dvdyM, dhdxB, dhdyB, dudxB, dudyB, dvdxB, dvdyB) \
+{                                                                                               \
+\
+}
+
 // Initial conditions
-#define SWEAVInitialConditions2D(t, x, y, elementInfo, elementInfo2, h, q, p) \
-{                                           \
-  *(h) = cos(-t + x)*cos(-t + y) + 2.0;     \
+
+#define SWECInitialConditions2D(t, x, y,elementInfo, h, q, p) \
+{                                       \
+  *(h) = cos(-t + x)*cos(-t + y) + 2.0;      \
   *(q) = sin(x-t);                          \
   *(p) = sin(y-t);                          \
-} 
-*/
+}
 
-#define SWEAVInitialConditions2D(t, x, y, elementInfo, elementInfo2, h, q, p) \
+/*
+#define SWECInitialConditions2D(t, x, y,elementInfo, h, q, p) \
 {                                   \
     if(x < 0) {                   \
         *(h) = 10;                  \
@@ -104,13 +106,25 @@ SOFTWARE.
     }                               \
     *(q)=0;                         \
     *(p)=0;                          \
-}
+} */
 
 
 
-#define SWEAVSourceTerms2D(xl, yl, t, h, q, p, s1, s2, s3) \
+#define SWECSourceTerms2D(xl, yl, t, s1, s2, s3) \
 {                                       \
   *s1=-sin(t-xl)*cos(t-yl)-cos(t-xl)*sin(t-yl)+cos(t-xl)+cos(t-yl); \
   *s2=-cos(-xl+t)-sin(-xl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)/ ((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2) ) -2*sin(-xl + t)*cos(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2) +p_grav*(cos(-xl + t)*cos(-yl + t) + 2)*sin(-xl + t)*cos(-yl + t) -sin(-yl + t)*sin(-yl + t)*sin(-xl + t)*cos(-xl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))-cos(-yl + t)*sin(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2); \
   *s3=-cos(-yl + t) - sin(-yl + t)*sin(-xl + t)*sin(-xl + t)*cos(-yl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))- sin(-yl + t)*cos(-xl + t)/(cos(-xl + t)*cos(-yl + t) + 2)- sin(-yl + t)*sin(-yl + t)*sin(-yl + t)*cos(-xl + t)/((cos(-xl + t)*cos(-yl + t) + 2)*(cos(-xl + t)*cos(-yl + t) + 2))- 2*sin(-yl + t)*cos(-yl + t)/(cos(-xl + t)*cos(-yl + t) + 2)+ p_grav*(cos(-xl + t)*cos(-yl + t) + 2)*cos(-xl + t)*sin(-yl + t); \
 }
+
+
+/*
+#define SWECSourceTerms2D(xl, yl, t, s1, s2, s3) \
+{ \
+  *s1 = -sin(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)+cos(-xl+t)+cos(-yl+t)+2.0*cos(-xl+t)*cos(-yl+t); \
+  *s2 = -cos(-xl+t)-1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)-2.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-xl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)-1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)-1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)-sin(-xl+t)*cos(-yl+t)*(cos(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+sin(-xl+t)*sin(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-yl+t))-(cos(-xl+t)*cos(-yl+t)+2.0)*(sin(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-3.0*cos(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*cos(-yl+t)-2.0*sin(-xl+t)*sin(-xl+t)*sin(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-yl+t)*cos(-yl+t))+1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)*cos(-xl+t)+1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)*cos(-xl+t);  \
+  *s3 = -cos(-yl+t)-sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))-sin(-yl+t)*cos(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-sin(-yl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))-2.0*sin(-yl+t)*cos(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+p_grav*(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-yl+t)*cos(-xl+t)+1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)*cos(-yl+t)+1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-yl+t)*cos(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)*(cos(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+sin(-yl+t)*sin(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-xl+t))-(cos(-xl+t)*cos(-yl+t)+2.0)*(sin(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-3.0*cos(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-yl+t)*cos(-xl+t)-2.0*sin(-yl+t)*sin(-yl+t)*sin(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-xl+t)*cos(-xl+t));  \
+} */
+
+
+

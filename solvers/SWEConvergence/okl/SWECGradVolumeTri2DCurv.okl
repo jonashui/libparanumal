@@ -1,0 +1,225 @@
+/*
+
+The MIT License (MIT)
+
+Copyright (c) 2017-2022 Tim Warburton, Noel Chalmers, Jesse Chan, Ali Karakus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
+@kernel void SWECGradVolumeTri2DCurv(const dlong Nelements,
+                                @restrict const  dfloat *  cubvgeo,
+                                @restrict const  dfloat *  cubvgeoCurv,
+                                @restrict const  dlong *   mapCurv,
+                                @restrict const  dfloat *  Dw,
+                                @restrict const  dfloat *  cubPDT,
+                                @restrict const  dfloat *  cubPDTs,
+                                @restrict const  dfloat *  cubInterp,
+                                @restrict const  dfloat *  U,
+                                @restrict        dfloat *  gradU){
+
+  for(dlong e=0;e<Nelements;++e;@outer(0)){
+    @shared dfloat s_U[p_Nfields][p_Np];
+    @shared dfloat s_F[p_Ngrads][p_cubNp];
+    @shared dfloat s_G[p_Ngrads][p_cubNp];
+
+    if(mapCurv[e] < 0) {
+    for(int n=0;n<p_Np;++n;@inner(0)){
+      const dlong qbase = e*p_Nfields*p_Np + n;
+      const dfloat h = U[qbase + 0*p_Np];
+      const dfloat q = U[qbase + 1*p_Np];
+      const dfloat p = U[qbase + 2*p_Np];
+
+      s_U[0][n] = h;
+      s_U[1][n] = q;
+      s_U[2][n] = p;
+    }
+    for(int n=0;n<p_cubNp;++n;@inner(0)){
+      dfloat h = 0., q = 0., p = 0.;
+      #pragma unroll p_Np
+      for(int i=0;i<p_Np;++i){
+        const dfloat cIni = cubInterp[n+i*p_cubNp];
+        h += cIni*s_U[0][i];
+        q += cIni*s_U[1][i];
+        p += cIni*s_U[2][i];
+        }
+      {
+      s_F[0][n] = h;
+      }
+      //printf("s_F=%lf, ",s_F[0][n]);
+
+      // F1 = 2*mu*T11 - (ru^2+p), G1 = 2*mu*T12 - (rvu)
+      {
+      s_F[1][n] = q/h;
+      }
+
+      // F2 = 2*mu*T21 - (ruv), G2 = 2*mu*T22 - (rv^2+p)
+      {
+      s_F[2][n] = p/h;
+      }
+
+
+    }
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){
+      if (n<p_Np) {
+        // prefetch geometric factors (constant on triangle)
+        const dfloat drdx = cubvgeo[e*p_Nvgeo + p_RXID];
+        const dfloat drdy = cubvgeo[e*p_Nvgeo + p_RYID];
+        const dfloat dsdx = cubvgeo[e*p_Nvgeo + p_SXID];
+        const dfloat dsdy = cubvgeo[e*p_Nvgeo + p_SYID];
+
+        dfloat df0dr = 0.f, df0ds = 0.f;
+        dfloat df1dr = 0.f, df1ds = 0.f;
+        dfloat df2dr = 0.f, df2ds = 0.f;
+
+        #pragma unroll p_cubNp
+        for(int i=0;i<p_cubNp;++i){
+            const dfloat cDrni = cubPDT[n+i*p_Np+0*p_cubNp*p_Np];
+            const dfloat cDsni = cubPDT[n+i*p_Np+1*p_cubNp*p_Np];
+
+            df0dr += cDrni*s_F[0][i];
+            df1dr += cDrni*s_F[1][i];
+            df2dr += cDrni*s_F[2][i];
+
+            df0ds += cDsni*s_F[0][i];
+            df1ds += cDsni*s_F[1][i];
+            df2ds += cDsni*s_F[2][i];
+          }
+
+      const dfloat dhdx = drdx*df0dr + dsdx*df0ds;
+      const dfloat dhdy = drdy*df0dr + dsdy*df0ds;
+
+      const dfloat dudx = drdx*df1dr + dsdx*df1ds;
+      const dfloat dudy = drdy*df1dr + dsdy*df1ds;
+
+      const dfloat dvdx = drdx*df2dr + dsdx*df2ds;
+      const dfloat dvdy = drdy*df2dr + dsdy*df2ds;
+
+      const dlong sbase = e*p_Ngrads*p_Np + n;
+      gradU[sbase + 0*p_Np] = -dhdx;
+      gradU[sbase + 1*p_Np] = -dhdy;
+      gradU[sbase + 2*p_Np] = -dudx;
+      gradU[sbase + 3*p_Np] = -dudy;
+      gradU[sbase + 4*p_Np] = -dvdx;
+      gradU[sbase + 5*p_Np] = -dvdy;
+    }
+    }
+
+    }    else {
+    const dlong eC = mapCurv[e];
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){      // for all nodes in this element
+      if(n<p_Np){      // for all nodes in this element
+      const dlong qbase = e*p_Nfields*p_Np + n;
+      const dfloat h = U[qbase + 0*p_Np];
+      const dfloat q = U[qbase + 1*p_Np];
+      const dfloat p = U[qbase + 2*p_Np];
+
+      s_U[0][n] = h;
+      s_U[1][n] = q;
+      s_U[2][n] = p;
+      }
+    }
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){
+      const dlong gid = eC*p_cubNp*p_Nvgeo+n;
+      const dfloat drdx = cubvgeoCurv[gid + p_RXID*p_cubNp];
+      const dfloat drdy = cubvgeoCurv[gid + p_RYID*p_cubNp];
+      const dfloat dsdx = cubvgeoCurv[gid + p_SXID*p_cubNp];
+      const dfloat dsdy = cubvgeoCurv[gid + p_SYID*p_cubNp];
+      const dfloat J    = cubvgeoCurv[gid + p_JID*p_cubNp];
+      //printf("drdx=%lf, ",drdx);
+      //interpolate to cubature
+      dfloat h = 0., q = 0., p = 0.;
+      #pragma unroll p_Np
+        for(int i=0;i<p_Np;++i){
+          const dfloat cIni = cubInterp[n+i*p_cubNp];
+          h += cIni*s_U[0][i];
+          q += cIni*s_U[1][i];
+          p += cIni*s_U[2][i];
+        }
+
+      // F0 = ru, G0 = rv
+      {
+      s_F[0][n] = J*(drdx*h);
+      s_F[1][n] = J*(drdy*h);
+      s_G[0][n] = J*(dsdx*h);
+      s_G[1][n] = J*(dsdy*h);
+      }
+      //printf("s_F=%lf, ",s_F[0][n]);
+
+      // F1 = 2*mu*T11 - (ru^2+p), G1 = 2*mu*T12 - (rvu)
+      {
+      const dfloat u = q/h;
+      s_F[2][n] = J*(drdx*u);
+      s_F[3][n] = J*(drdy*u);
+      s_G[2][n] = J*(dsdx*u);
+      s_G[3][n] = J*(dsdy*u);
+      }
+
+      // F2 = 2*mu*T21 - (ruv), G2 = 2*mu*T22 - (rv^2+p)
+      {
+      const dfloat v = p/h;
+      s_F[4][n] = J*(drdx*v);
+      s_F[5][n] = J*(drdy*v);
+      s_G[4][n] = J*(dsdx*v);
+      s_G[5][n] = J*(dsdy*v);
+      }
+    }
+
+
+    for(int n=0;n<p_cubNp;++n;@inner(0)){
+      if (n<p_Np) {
+        dfloat dhdx = 0, dhdy = 0, dudx = 0, dudy = 0, dvdx = 0, dvdy = 0;
+        #pragma unroll p_cubNp
+          for(int i=0;i<p_cubNp;++i){
+            dlong dbase=eC*2*p_Np*p_cubNp;
+
+            //const dfloat cDrni = cubPDT[n+i*p_Np+0*p_cubNp*p_Np];
+            //const dfloat cDsni = cubPDT[n+i*p_Np+1*p_cubNp*p_Np];
+            const dfloat cDrni = cubPDTs[dbase+n+i*p_Np+0*p_cubNp*p_Np];
+            const dfloat cDsni = cubPDTs[dbase+n+i*p_Np+1*p_cubNp*p_Np];
+
+            dhdx += cDrni*s_F[0][i] + cDsni*s_G[0][i];
+            dhdy += cDrni*s_F[1][i] + cDsni*s_G[1][i];
+
+            dudx += cDrni*s_F[2][i] + cDsni*s_G[2][i];
+            dudy += cDrni*s_F[3][i] + cDsni*s_G[3][i];
+
+            dvdx += cDrni*s_F[4][i] + cDsni*s_G[4][i];
+            dvdy += cDrni*s_F[5][i] + cDsni*s_G[5][i];
+          }
+
+        const dlong sbase = e*p_Ngrads*p_Np + n;
+        gradU[sbase + 0*p_Np] = -dhdx;
+        gradU[sbase + 1*p_Np] = -dhdy;
+        gradU[sbase + 2*p_Np] = -dudx;
+        gradU[sbase + 3*p_Np] = -dudy;
+        gradU[sbase + 4*p_Np] = -dvdx;
+        gradU[sbase + 5*p_Np] = -dvdy;
+
+        //printf("e=%d dqdx=%.15lf\n",e,-dqdx);
+      }
+    }
+  }
+  //printf("___________________\n");
+  }
+}

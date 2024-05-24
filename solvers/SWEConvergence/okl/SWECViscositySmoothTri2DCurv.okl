@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-@kernel void SWEAVViscositySmoothTri2D(const dlong Nelements,
+@kernel void SWECViscositySmoothTri2DCurv(const dlong Nelements,
                                  @restrict const  dlong *  vmapP,
                                  @restrict const  dfloat *  muInterp,
                                  @restrict const  dlong *  EToN,
@@ -36,7 +36,7 @@ SOFTWARE.
   for(dlong e=0;e<Nelements;e++;@outer(0)){
     @shared dfloat s_muavg[p_NpSmooth];
     @shared dfloat s_muNeighbours[p_Nfaces];
-    
+
     for(int n=0;n<p_Np;++n;@inner(0)) {
       if(n==0) {
         #pragma unroll p_Nfaces
@@ -88,9 +88,6 @@ SOFTWARE.
             mures += munm*s_muavg[m];
         }
         
-        if(e==0) {
-          printf("%.15lf\n",mures);
-        }
         const dlong sbase = e*p_Ngrads*p_Np + n;
         gradU[sbase + 0*p_Np]*=mures;
         gradU[sbase + 1*p_Np]*=mures;

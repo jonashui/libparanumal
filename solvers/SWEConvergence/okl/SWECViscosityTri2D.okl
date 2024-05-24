@@ -25,7 +25,7 @@ SOFTWARE.
 */
 
 // batch process elements
-/*@kernel void SWEAVViscosityTri2D(const dlong Nelements,
+/*@kernel void SWECViscosityTri2D(const dlong Nelements,
                                     @restrict const  dfloat *  sgeo,
                                     @restrict const  dfloat *  sgeoCurv,
                                     @restrict const  dlong *    mapCurv,
@@ -148,7 +148,7 @@ SOFTWARE.
 
 
 
-@kernel void SWEAVViscosityTri2D(const dlong Nelements,
+@kernel void SWECViscosityTri2D(const dlong Nelements,
                                     @restrict const  dfloat *  sgeo,
                                     @restrict const  dfloat *  sgeoCurv,
                                     @restrict const  dlong *    mapCurv,
@@ -162,7 +162,7 @@ SOFTWARE.
                                     @restrict dfloat *  mu){
     
     for(dlong e=0;e<Nelements;++e;@outer(0)){
-        @shared dfloat s_h[p_Nfaces][p_Nfp];
+              @shared dfloat s_h[p_Nfaces][p_Nfp];
         @shared dfloat s_hhat[p_Nfaces][p_Nfp-1];
         @shared dfloat s_L2temp[p_Nfaces][p_Nfp];
         @shared dfloat s_L2[p_Nfaces];
@@ -295,7 +295,7 @@ SOFTWARE.
                   muTemp = muMax;
               }
               else if(tau>=1 && tau<=3){
-                  muTemp = muMax*(1.0-(tau-1.0)/2.0);
+                  muTemp = muMax*1.0-(tau-1.0)/2.0;
               }
               else{
                   muTemp = 0.0;
@@ -304,7 +304,6 @@ SOFTWARE.
             }
            }
         }
-   
     }
 
 }

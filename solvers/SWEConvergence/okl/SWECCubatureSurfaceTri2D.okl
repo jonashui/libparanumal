@@ -1,0 +1,333 @@
+/*
+
+The MIT License (MIT)
+
+Copyright (c) 2017-2022 Tim Warburton, Noel Chalmers, Jesse Chan, Ali Karakus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
+
+// central flux
+void central(const dfloat nx,
+            const dfloat ny,
+            const dfloat hM,
+            const dfloat qM,
+            const dfloat pM,
+            const dfloat hP,
+            const dfloat qP,
+            const dfloat pP,
+            dfloat *hflux,
+            dfloat *qflux,
+            dfloat *pflux){
+
+  //subtract F(qM)
+
+  dfloat Fh = qM-qP;
+  dfloat Fq = qM*qM/hM+p_half*p_grav*hM*hM-(qP*qP/hP+p_half*p_grav*hP*hP);
+  dfloat Fp = qM*pM/hM-qP*pP/hP;
+
+  dfloat Gh = pM-pP;
+  dfloat Gq = qM*pM/hM-qP*pP/hP;
+  dfloat Gp = pM*pM/hM+p_half*p_grav*hM*hM-(pP*pP/hP+p_half*p_grav*hP*hP);
+
+  *hflux  = nx*p_half * Fh + ny*p_half * Gh;
+  *qflux  = nx*p_half * Fq + ny*p_half * Gq;
+  *pflux  = nx*p_half * Fp + ny*p_half * Gp;
+}
+
+// hllc flux
+void hllc(const dfloat nx,
+            const dfloat ny,
+            const dfloat hM,
+            const dfloat qM,
+            const dfloat pM,
+            const dfloat hP,
+            const dfloat qP,
+            const dfloat pP,
+            dfloat *hflux,
+            dfloat *qflux,
+            dfloat *pflux){
+
+  //subtract F(qM)
+
+  dfloat qMr = nx*qM + ny*pM;
+  dfloat pMr = -ny*qM + nx*pM;
+
+  dfloat qPr = nx*qP + ny*pP;
+  dfloat pPr = -ny*qP + nx*pP;
+
+  dfloat aM=sqrt(p_grav*hM);
+  dfloat aP=sqrt(p_grav*hP);
+
+  dfloat uMr=qMr/hM;
+  dfloat vMr=pMr/hM;
+
+  dfloat uPr=qPr/hP;
+  dfloat vPr=pPr/hP;
+
+  dfloat hS=1/p_grav*(p_half*(aM+aP) + p_quarter *(uMr-uPr))*(p_half*(aM+aP) + p_quarter *(uMr-uPr));
+
+  dfloat qL = 0.f;
+  if(hS <= hM) {
+    qL = 1.0;
+  }
+  else {
+    qL=sqrt( p_half*(hS+hM)*hS/(hM*hM) );
+  }
+
+  dfloat qR = 0.f;
+  if(hS <= hP) {
+    qR= 1.0;
+  }
+  else {
+    qR=sqrt( p_half*(hS+hP)*hS/(hP*hP) );
+  }
+
+  dfloat sL=uMr-aM*qL;
+  dfloat sR=uPr+aP*qR;
+
+  dfloat sS=( sL*hP*(uPr-sR) - sR*hM*(uMr-sL) ) / ( hP*(uPr-sR) - hM*(uMr-sL));
+
+  dfloat FLh= qMr;
+  dfloat FRh= qPr;
+
+  dfloat QLh= hM*( (sL-uMr) / (sL - sS)  );
+  dfloat QRh= hP*( (sR-uPr) / (sR - sS)  );
+
+  dfloat FLq= qMr*uMr+p_half*p_grav*hM*hM;
+  dfloat FRq= qPr*uPr+p_half*p_grav*hP*hP;
+
+  dfloat QLq= QLh*sS;
+  dfloat QRq= QRh*sS;
+
+  dfloat FLp= uMr*vMr*hM;
+  dfloat FRp= uPr*vPr*hP;
+
+  dfloat QLp= QLh*vMr;
+  dfloat QRp= QRh*vPr;
+
+  dfloat fh = 0.f; dfloat fq = 0.f; dfloat fp = 0.f;
+  if(sS >= 0 && sL < 0 && sR > 0) {
+    fh=FLh+sL*(QLh-hM);
+    fq=FLq+sL*(QLq-qMr);
+    fp=FLp+sL*(QLp-pMr);
+  }
+  else if(sS < 0 && sL < 0 && sR > 0) {
+    fh=FRh+sR*(QRh-hP);
+    fq=FRq+sR*(QRq-qPr);
+    fp=FRp+sR*(QRp-pPr);
+  }
+  else if (sL >= 0) {
+    fh=FLh;
+    fq=FLq;
+    fp=FLp;
+  }
+  else if(sR <= 0) {
+    fh=FRh;
+    fq=FRq;
+    fp=FRp;
+  }
+
+  *hflux  = fh;
+  *qflux  = nx*fq - ny*fp;
+  *pflux  = ny*fq + nx*fp;
+}
+
+// batch process elements
+@kernel void SWECCubatureSurfaceTri2D(const dlong Nelements,
+                                    @restrict const  dfloat *  cubsgeo,
+                                    @restrict const  dfloat *  cubsgeoCurv,
+                                    @restrict const  dlong  *  mapCurv,
+                                    @restrict const  dlong  *  vmapM,
+                                    @restrict const  dlong  *  vmapP,
+                                    @restrict const  int    *  EToB,
+                                    @restrict const  dfloat *  intInterp, // interpolate to integration nodes
+                                    @restrict const  dfloat *  intLIFT, // lift from integration to interpolation nodes
+                                    @restrict const  dfloat *  intLIFTs,
+                                    @restrict const  dfloat *  intx,
+                                    @restrict const  dfloat *  inty,
+                                    @restrict const  dfloat *  intz,
+                                    const dfloat time,
+                                    @restrict const  dfloat *  U,
+                                    @restrict const  dfloat *  gradU,
+                                    @restrict dfloat *  rhsU){
+
+  // for all elements
+  for(dlong e=0;e<Nelements;e++;@outer(0)){
+    // @shared storage for flux terms
+    //printf("element=%d\n",e);
+    @shared dfloat s_UM[p_Nfields][p_NfacesNfp];
+    @shared dfloat s_UP[p_Nfields][p_NfacesNfp];
+
+    @shared dfloat s_gradUM[p_Ngrads][p_NfacesNfp];
+    @shared dfloat s_gradUP[p_Ngrads][p_NfacesNfp];
+
+    @shared dfloat s_hflux[p_intNfpNfaces];
+    @shared dfloat s_qflux[p_intNfpNfaces];
+    @shared dfloat s_pflux[p_intNfpNfaces];
+
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){
+        if(n<p_NfacesNfp) {
+        // indices of negative and positive traces of face node
+        const dlong id  = e*p_Nfp*p_Nfaces + n;
+        const dlong idM = vmapM[id];
+        const dlong idP = vmapP[id];
+
+        // load traces
+        const dlong eM = e;
+        const dlong eP = idP/p_Np;
+        const int vidM = idM%p_Np;
+        const int vidP = idP%p_Np;
+
+        const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+        const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
+
+        const dlong sbaseM = eM*p_Np*p_Ngrads + vidM;
+        const dlong sbaseP = eP*p_Np*p_Ngrads + vidP;
+
+        s_UM[0][n] = U[qbaseM + 0*p_Np];
+        s_UM[1][n] = U[qbaseM + 1*p_Np];
+        s_UM[2][n] = U[qbaseM + 2*p_Np];
+    
+        s_UP[0][n] = U[qbaseP + 0*p_Np];
+        s_UP[1][n] = U[qbaseP + 1*p_Np];
+        s_UP[2][n] = U[qbaseP + 2*p_Np];
+
+        s_gradUM[0][n] = gradU[sbaseM+0*p_Np];
+        s_gradUM[1][n] = gradU[sbaseM+1*p_Np];
+        s_gradUM[2][n] = gradU[sbaseM+2*p_Np];
+        s_gradUM[3][n] = gradU[sbaseM+3*p_Np];
+        s_gradUM[4][n] = gradU[sbaseM+4*p_Np];
+        s_gradUM[5][n] = gradU[sbaseM+5*p_Np];
+
+        s_gradUP[0][n] = gradU[sbaseP+0*p_Np];
+        s_gradUP[1][n] = gradU[sbaseP+1*p_Np];
+        s_gradUP[2][n] = gradU[sbaseP+2*p_Np];
+        s_gradUP[3][n] = gradU[sbaseP+3*p_Np];
+        s_gradUP[4][n] = gradU[sbaseP+4*p_Np];
+        s_gradUP[5][n] = gradU[sbaseP+5*p_Np];
+      }
+    }
+    // interpolate to surface integration nodes
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
+        if(n<p_intNfpNfaces){
+        // find face that owns this node
+        const int face = n/p_intNfp;
+
+
+        // load surface geofactors for this face
+        const dlong sid    = p_Nsgeo*(e*p_Nfaces+face);
+        const dfloat nx   = cubsgeo[sid+p_NXID];
+        const dfloat ny   = cubsgeo[sid+p_NYID];
+        const dfloat sJ   = cubsgeo[sid+p_SJID];
+        const dfloat invJ = cubsgeo[sid+p_IJID];
+
+        dfloat hM  = 0., qM = 0., pM=0.;
+        dfloat hP  = 0., qP = 0., pP=0.;
+        dfloat dhdxM = 0., dhdyM = 0.;
+        dfloat dudxM = 0., dudyM = 0.;
+        dfloat dvdxM = 0., dvdyM = 0.;
+
+        dfloat dhdxP = 0., dhdyP = 0.;
+        dfloat dudxP = 0., dudyP = 0.;
+        dfloat dvdxP = 0., dvdyP = 0.;
+
+
+        // local block interpolation (face nodes to integration nodes)
+        #pragma unroll p_Nfp
+          for(int m=0;m<p_Nfp;++m){
+            const dfloat iInm = intInterp[n+m*p_Nfaces*p_intNfp];
+            const int fm = face*p_Nfp+m;
+            hM  += iInm*s_UM[0][fm];
+            qM += iInm*s_UM[1][fm];
+            pM += iInm*s_UM[2][fm];
+            hP  += iInm*s_UP[0][fm];
+            qP += iInm*s_UP[1][fm];
+            pP += iInm*s_UP[2][fm];
+
+            dhdxM += iInm*s_gradUM[0][fm];
+            dhdyM += iInm*s_gradUM[1][fm];
+            dudxM += iInm*s_gradUM[2][fm];
+            dudyM += iInm*s_gradUM[3][fm];
+            dvdxM += iInm*s_gradUM[4][fm];
+            dvdyM += iInm*s_gradUM[5][fm];
+
+            dhdxP += iInm*s_gradUP[0][fm];
+            dhdyP += iInm*s_gradUP[1][fm];
+            dudxP += iInm*s_gradUP[2][fm];
+            dudyP += iInm*s_gradUP[3][fm];
+            dvdxP += iInm*s_gradUP[4][fm];
+            dvdyP += iInm*s_gradUP[5][fm];
+          }
+
+        // apply boundary condition
+        const int bc = EToB[face+p_Nfaces*e];
+        const dlong id = p_intNfp*p_Nfaces*e + n;
+        if(bc>0){
+          SWECDirichletConditions2D(bc, time, intx[id], inty[id], nx, ny, hM, qM, pM, &hP, &qP, &pP);
+          SWECDerivativeConditions2D(bc, time, intx[id], inty[id], nx, ny, dhdxM, dhdyM, dudxM, dudyM, dvdxM, dvdyM, &dhdxP, &dhdyP, &dudxP, &dudyP, &dvdxP, &dvdyP); 
+        }
+
+        dfloat hflux, qflux, pflux;
+        //central(nx, ny, hM, qM, pM, hP, qP, pP, &hflux, &qflux, &pflux);
+        hllc(nx, ny, hM, qM, pM, hP, qP, pP, &hflux, &qflux, &pflux);
+        //printf("e=%d qflux=%lf\n ",e,qflux);
+
+        hflux -= 0.5*(nx*(dhdxM+dhdxP) + ny*(dhdyM+dhdyP));
+        qflux -= 0.5*(nx*(hM*dudxM+hP*dudxP) + ny*(hM*dudyM+hP*dudyP));
+        pflux -= 0.5*(nx*(hM*dvdxM+hP*dvdxP) + ny*(hM*dvdyM+hP*dvdyP));
+
+        //printf("e=%d qflux=%lf\n ",e,qflux);
+
+        // evaluate "flux" terms: (sJ/J)*(A*nx+B*ny)*(q^* - q^-)
+        const dfloat sc = invJ*sJ;
+
+        s_hflux[n] = sc*(-hflux);
+        s_qflux[n] = sc*(-qflux);
+        s_pflux[n] = sc*(-pflux);
+      }
+    }
+    // wait for all @shared memory writes of the previous inner loop to complete
+
+    // for each node in the element
+    for(int n=0;n<p_cubMaxNodes;++n;@inner(0)){
+      if(n<p_Np){
+        // load rhs data from volume fluxes
+        dfloat Lhflux = 0.f, Lqflux = 0.f, Lpflux = 0.f;
+
+        // rhs += LIFT*((sJ/J)*(A*nx+B*ny)*(q^* - q^-))
+        #pragma unroll p_intNfpNfaces
+          for(int m=0;m<p_intNfpNfaces;++m){
+            const dfloat L = intLIFT[n+m*p_Np];
+            Lhflux += L*s_hflux[m];
+            Lqflux += L*s_qflux[m];
+            Lpflux += L*s_pflux[m];
+          }
+
+          const dlong base = e*p_Np*p_Nfields+n;
+          rhsU[base+0*p_Np] += Lhflux;
+          rhsU[base+1*p_Np] += Lqflux;
+          rhsU[base+2*p_Np] += Lpflux;
+          //printf("e=%d Lqflux=%lf\n ",e,Lpflux);
+      }
+    }
+  }
+}

@@ -24,7 +24,7 @@ SOFTWARE.
 */
 
 
-@kernel void SWEAVCubatureVolumeTri2DCurv(const dlong Nelements,
+@kernel void SWECCubatureVolumeTri2DCurv(const dlong Nelements,
                                     @restrict const  dfloat *  cubvgeo,
                                     @restrict const  dfloat *  cubvgeoCurv,
                                     @restrict const  dlong *   mapCurv,
@@ -148,15 +148,19 @@ SOFTWARE.
 
       const dlong  idx = e*p_Np + n;
       const dfloat xl = x[idx]; const dfloat yl = y[idx];
-      
       dfloat s1,s2,s3;
-      SWEAVSourceTerms2D(xl, yl, t, h, q, p, &s1, &s2, &s3);
+      SWECSourceTerms2D(xl, yl, t, &s1, &s2, &s3);
       /*
       const dfloat s1=-sin(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)+cos(-xl+t)+cos(-yl+t)+2*cos(-xl+t)*cos(-yl+t);
       const dfloat s2=-cos(-xl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*(sin(-xl+t)*sin(-xl+t)*sin(-xl+t))*cos(-yl+t)-2/(cos(-xl+t)*cos(-yl+t)+2)*sin(-xl+t)*cos(-xl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2)*sin(-xl+t)*cos(-yl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-yl+t)*sin(-xl+t)*cos(-xl+t)-1/(cos(-xl+t)*cos(-yl+t)+2)*cos(-yl+t)*sin(-xl+t)-sin(-xl+t);
       const dfloat s3=-cos(-yl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)-1/(cos(-xl+t)*cos(-yl+t)+2)*sin(-yl+t)*cos(-xl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)-2/(cos(-xl+t)*cos(-yl+t)+2)*sin(-yl+t)*cos(-yl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2)*sin(-yl+t)*cos(-xl+t)-sin(-yl+t);
       */
-      
+
+      /*
+      const dfloat s1 = -sin(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)+cos(-xl+t)+cos(-yl+t)+2.0*cos(-xl+t)*cos(-yl+t);
+      const dfloat s2 = -cos(-xl+t)-1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)-2.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-xl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)-1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)-1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)-sin(-xl+t)*cos(-yl+t)*(cos(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+sin(-xl+t)*sin(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-yl+t))-(cos(-xl+t)*cos(-yl+t)+2.0)*(sin(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-3.0*cos(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*cos(-yl+t)-2.0*sin(-xl+t)*sin(-xl+t)*sin(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-yl+t)*cos(-yl+t))+1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-xl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)*cos(-xl+t)+1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-xl+t)*cos(-yl+t)*cos(-xl+t);
+      const dfloat s3 = -cos(-yl+t)-sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))-sin(-yl+t)*cos(-xl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-sin(-yl+t)*sin(-yl+t)*sin(-yl+t)*cos(-xl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))-2.0*sin(-yl+t)*cos(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+p_grav*(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-yl+t)*cos(-xl+t)+1.0/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-yl+t)*sin(-xl+t)*sin(-xl+t)*cos(-yl+t)*cos(-yl+t)+1.0/(cos(-xl+t)*cos(-yl+t)+2.0)*sin(-yl+t)*cos(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)*(cos(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)+sin(-yl+t)*sin(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-xl+t))-(cos(-xl+t)*cos(-yl+t)+2.0)*(sin(-yl+t)/(cos(-xl+t)*cos(-yl+t)+2.0)-3.0*cos(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*sin(-yl+t)*cos(-xl+t)-2.0*sin(-yl+t)*sin(-yl+t)*sin(-yl+t)/((cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0)*(cos(-xl+t)*cos(-yl+t)+2.0))*cos(-xl+t)*cos(-xl+t));
+      */
       const dlong base = e*p_Np*p_Nfields + n;
 
       // move to rhs
@@ -282,8 +286,7 @@ SOFTWARE.
       const dlong  idx = e*p_Np + n;
       const dfloat xl = x[idx]; const dfloat yl = y[idx];
       dfloat s1,s2,s3;
-      SWEAVSourceTerms2D(xl, yl, t, h, q, p, &s1, &s2, &s3);
-
+      SWECSourceTerms2D(xl, yl, t, &s1, &s2, &s3);
       /*
       const dfloat s1=-sin(-xl+t)*cos(-yl+t)-sin(-yl+t)*cos(-xl+t)+cos(-xl+t)+cos(-yl+t)+2*cos(-xl+t)*cos(-yl+t);
       const dfloat s2=-cos(-xl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*(sin(-xl+t)*sin(-xl+t)*sin(-xl+t))*cos(-yl+t)-2/(cos(-xl+t)*cos(-yl+t)+2)*sin(-xl+t)*cos(-xl+t)+p_grav*(cos(-xl+t)*cos(-yl+t)+2)*sin(-xl+t)*cos(-yl+t)-1/((cos(-xl+t)*cos(-yl+t)+2)*(cos(-xl+t)*cos(-yl+t)+2))*sin(-yl+t)*sin(-yl+t)*sin(-xl+t)*cos(-xl+t)-1/(cos(-xl+t)*cos(-yl+t)+2)*cos(-yl+t)*sin(-xl+t)-sin(-xl+t);

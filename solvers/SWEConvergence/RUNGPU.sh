@@ -1,7 +1,7 @@
 #!/bin/sh
 # embedded options to bsub - start with #BSUB
 # -- our name ---
-#BSUB -J SWERun
+#BSUB -J SWEtest
 # -- choose queue --
 #BSUB -q gpua100
 # -- Notify me by email when execution begins --
@@ -23,7 +23,7 @@
 #BSUB -n 4
 #BSUB -R "rusage[mem=5GB]"
 #BSUB -R "span[block=1]"
-#BSUB -W 5:00
+#BSUB -W 15:00
 
 # Load modules
 module purge
@@ -46,13 +46,4 @@ module load cuda/12.0
 #make clean
 #make -j
 #./advectionMain setups/setupTri2D.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2D.rc
-
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DWall.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DParabolic.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam1.rc
-mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam2.rc
-#mpiexec -np 1 --map-by slot:PE=4 ./SWEAVMain setups/setupTri2DCircularDam3.rc
-
-
-#mpiexec ./SWEAVMain setups/setupTri2D.rc
+mpiexec -np 1 --map-by slot:PE=4 ./SWECMain setups/setupTri2D.rc
