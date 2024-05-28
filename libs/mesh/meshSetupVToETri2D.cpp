@@ -52,7 +52,7 @@ void mesh_t::SetupVToETri2D(){
     }
 
     #pragma omp parallel for
-    for(dlong e=0;e<Nelements;++e) {
+    for(dlong e=0;e<Nelements-totalRingElements;++e) {
         dlong id = e*Nverts;
 
         for(int i=0;i<3;++i) {
