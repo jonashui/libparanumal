@@ -25,6 +25,7 @@ SOFTWARE.
 */
 
 #include "mesh.hpp"
+#include "parAdogs.hpp"
 
 namespace libp {
 void mesh_t::SetupVToETri2D(){
@@ -33,19 +34,19 @@ void mesh_t::SetupVToETri2D(){
     EToN.malloc(10*3*(Nelements-totalRingElements));
 
     if(Nelements < 1000) {
-        VToE.malloc(3*Nelements*10);
-        counts.calloc(3*Nelements);
+        VToE.malloc(3*globalSize*Nelements*10);
+        counts.calloc(3*globalSize*Nelements);
     } else {
-        VToE.malloc(Nelements*10);
-        counts.calloc(Nelements);
+        VToE.malloc(2*globalSize*Nelements*10);
+        counts.calloc(2*globalSize*Nelements);
     }
 
     #pragma omp parallel for
     for(dlong e=0;e<Nelements;++e) {
         dlong id = e*Nverts;
-
         for(int i=0;i<3;++i) {
             hlong v=EToV[id + i];
+
             VToE[v*10+counts[v]]=e;
             counts[v]++;
         }
@@ -63,6 +64,8 @@ void mesh_t::SetupVToETri2D(){
             }
         }
     }
+    VToE.free();
+    counts.free();
 
     o_EToN=platform.malloc<dlong>(EToN);
     o_Vcounts=platform.malloc<dlong>(Vcounts);

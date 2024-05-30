@@ -38,6 +38,7 @@ mesh_t mesh_t::SetupRingPatch(){
   /*Copy underlying mesh object*/
   mesh_t mesh = *this;
 
+  mesh.globalSize=size;
   //just reuse the current mesh if there are no neighbors
   if (size==1) {
       mesh.SetupVToETri2D();
@@ -48,6 +49,7 @@ mesh_t mesh_t::SetupRingPatch(){
   mesh.comm = comm.Split(rank, rank);
   mesh.rank = mesh.comm.rank();
   mesh.size = mesh.comm.size();
+  
 
   mesh.Nelements = Nelements+totalRingElements;
   mesh.NelementsGlobal = Nelements+totalRingElements;

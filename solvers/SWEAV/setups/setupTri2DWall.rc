@@ -6,7 +6,7 @@ data/SWEAVWall2D.h
 
 
 [MESH FILE]
-../../meshes/wallh05.msh
+../../meshes/wallh15.msh
 
 
 [MESH DIMENSION]
@@ -28,7 +28,7 @@ data/SWEAVWall2D.h
 1
 
 [POLYNOMIAL DEGREE]
-6
+4
 
 #Can be COLLOCATION or CUBATURE
 [ADVECTION TYPE]

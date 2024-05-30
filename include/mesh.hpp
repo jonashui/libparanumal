@@ -59,7 +59,7 @@ class mesh_t {
   properties_t props;
 
   comm_t comm;
-  int rank, size;
+  int rank, size, globalSize;
 
   /*************************/
   /* Element Data          */
